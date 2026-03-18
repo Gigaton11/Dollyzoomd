@@ -17,7 +17,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        // Use SQLite for development
+        options.UseSqlite("Data Source=dollyzoomd.db");
+    }
+    else
+    {
+        // Use PostgreSQL for production
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    }
+});
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
@@ -60,6 +71,7 @@ builder.Services.Configure<DiscoverOptions>(builder.Configuration.GetSection(Dis
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITvMazeClient, TvMazeClient>();
+builder.Services.AddScoped<IRottenTomatoesClient, RottenTomatoesClient>();
 builder.Services.AddScoped<IShowService, ShowService>();
 builder.Services.AddScoped<IWatchlistRepository, WatchlistRepository>();
 builder.Services.AddScoped<IWatchlistService, WatchlistService>();
@@ -69,6 +81,7 @@ builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IDiscoverRepository, DiscoverRepository>();
 builder.Services.AddScoped<IDiscoverService, DiscoverService>();
+builder.Services.AddHostedService<PopularShowsRefreshService>();
 
 // ── HTTP Client (TVMaze) ──────────────────────────────────────────────────────
 builder.Services.AddHttpClient("TVMaze", client =>
@@ -76,6 +89,13 @@ builder.Services.AddHttpClient("TVMaze", client =>
     client.BaseAddress = new Uri(builder.Configuration["TVMaze:BaseUrl"]
         ?? "https://api.tvmaze.com");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient("RottenTomatoes", client =>
+{
+    client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; DollyZoomd/1.0)");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 

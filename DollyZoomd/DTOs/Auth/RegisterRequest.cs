@@ -16,4 +16,8 @@ public class RegisterRequest
     [Required]
     [StringLength(100, MinimumLength = 8)]
     public string Password { get; set; } = string.Empty;
+
+    [Required]
+    [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+    public string ConfirmPassword { get; set; } = string.Empty;
 }

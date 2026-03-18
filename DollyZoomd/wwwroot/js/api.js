@@ -8,6 +8,38 @@ export class ApiError extends Error {
     }
 }
 
+function extractErrorMessage(payload) {
+    if (!payload || typeof payload !== "object") return null;
+
+    if (typeof payload.message === "string" && payload.message.trim()) {
+        return payload.message;
+    }
+
+    if (typeof payload.error === "string" && payload.error.trim()) {
+        return payload.error;
+    }
+
+    if (payload.errors && typeof payload.errors === "object") {
+        for (const value of Object.values(payload.errors)) {
+            if (!Array.isArray(value)) continue;
+            const firstMessage = value.find((entry) => typeof entry === "string" && entry.trim());
+            if (firstMessage) {
+                return firstMessage;
+            }
+        }
+    }
+
+    if (typeof payload.title === "string" && payload.title.trim()) {
+        return payload.title;
+    }
+
+    if (typeof payload.detail === "string" && payload.detail.trim()) {
+        return payload.detail;
+    }
+
+    return null;
+}
+
 async function request(url, { method = "GET", body, auth = false } = {}) {
     const headers = { "Content-Type": "application/json" };
     if (auth) {
@@ -18,7 +50,12 @@ async function request(url, { method = "GET", body, auth = false } = {}) {
     const init = { method, headers };
     if (body !== undefined) init.body = JSON.stringify(body);
 
-    const res = await fetch(url, init);
+    let res;
+    try {
+        res = await fetch(url, init);
+    } catch {
+        throw new ApiError("Could not reach the API server. Make sure the backend is running.", 0);
+    }
 
     if (res.status === 401) {
         Auth.clearAuth();
@@ -28,7 +65,7 @@ async function request(url, { method = "GET", body, auth = false } = {}) {
         let msg = `HTTP ${res.status}`;
         try {
             const err = await res.json();
-            msg = err.message ?? err.error ?? err.title ?? err.detail ?? JSON.stringify(err);
+            msg = extractErrorMessage(err) ?? JSON.stringify(err);
         } catch { /* ignore parse error */ }
         throw new ApiError(msg, res.status);
     }

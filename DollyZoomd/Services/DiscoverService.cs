@@ -11,11 +11,17 @@ namespace DollyZoomd.Services;
 public class DiscoverService(
     IDiscoverRepository discoverRepository,
     ITvMazeClient tvMazeClient,
+    IRottenTomatoesClient rottenTomatoesClient,
     IOptions<DiscoverOptions> discoverOptions,
     ILogger<DiscoverService> logger) : IDiscoverService
 {
+    private const int PopularTopCount = 25;
+    private static readonly int[] DefaultPopularFallbackTvMazeIds = [1, 82, 121, 235, 530, 1403, 1399, 190, 216, 361, 240, 271];
+    private static readonly SemaphoreSlim PopularRefreshLock = new(1, 1);
+
     private readonly IDiscoverRepository _discoverRepository = discoverRepository;
     private readonly ITvMazeClient _tvMazeClient = tvMazeClient;
+    private readonly IRottenTomatoesClient _rottenTomatoesClient = rottenTomatoesClient;
     private readonly DiscoverOptions _options = discoverOptions.Value;
     private readonly ILogger<DiscoverService> _logger = logger;
 
@@ -24,14 +30,44 @@ public class DiscoverService(
 
     public async Task<IReadOnlyList<ShowSearchItemDto>> GetPopularShowsAsync(int take = 20, int skip = 0)
     {
-        // Check if cache is expired; if so, refresh it
-        var isExpired = await _discoverRepository.IsCategoryExpiredAsync(PopularCategory);
-        if (isExpired)
-        {
-            await RefreshPopularCacheAsync();
-        }
+        await EnsurePopularShowsFreshAsync();
 
         return await _discoverRepository.GetDiscoverShowsAsync(PopularCategory, take, skip);
+    }
+
+    public async Task EnsurePopularShowsFreshAsync(CancellationToken cancellationToken = default)
+    {
+        var isExpired = await _discoverRepository.IsCategoryExpiredAsync(PopularCategory);
+        var cachedCount = await _discoverRepository.GetCategoryCountAsync(PopularCategory);
+        if (!isExpired && cachedCount >= PopularTopCount)
+        {
+            return;
+        }
+
+        await PopularRefreshLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            isExpired = await _discoverRepository.IsCategoryExpiredAsync(PopularCategory);
+            cachedCount = await _discoverRepository.GetCategoryCountAsync(PopularCategory);
+            if (!isExpired && cachedCount >= PopularTopCount)
+            {
+                return;
+            }
+
+            try
+            {
+                await RefreshPopularCacheAsync(cancellationToken);
+            }
+            catch (Exception ex) when (cachedCount > 0)
+            {
+                _logger.LogWarning(ex, "Popular refresh failed. Serving stale cache with {Count} rows.", cachedCount);
+            }
+        }
+        finally
+        {
+            PopularRefreshLock.Release();
+        }
     }
 
     public async Task<IReadOnlyList<ShowSearchItemDto>> GetAllTimeGreatsAsync(int take = 20, int skip = 0)
@@ -67,25 +103,36 @@ public class DiscoverService(
     }
 
     /// <summary>
-    /// Refreshes the popular shows cache by fetching from TVMaze.
-    /// In a real implementation, you might query TVMaze's schedule or trending endpoint.
-    /// For now, we use a curated list of popular show IDs.
+    /// Refreshes the popular shows cache using Rotten Tomatoes' ranked list, then resolves each title through TVMaze.
+    /// If the source changes or some entries cannot be resolved, the method backfills missing rows from fallback TVMaze IDs.
     /// </summary>
-    private async Task RefreshPopularCacheAsync()
+    private async Task RefreshPopularCacheAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            // Fetch a representative set of popular shows from TVMaze
-            // This is a simplified approach; in production you'd want TVMaze's trending or schedule endpoint
-            var popularShowIds = new[] { 1, 82, 121, 235, 530, 1403, 1399, 190, 216, 361, 240, 271 };
-            var shows = await _tvMazeClient.GetShowsByIdsAsync(popularShowIds.ToList());
+            var dtos = new List<ShowSearchItemDto>();
 
-            var dtos = shows
-                .Select(x => x.Show)
-                .Where(show => show is not null)
-                .Select(show => MapToDto(show!))
-                .DistinctBy(dto => dto.TvMazeId)
-                .ToList();
+            try
+            {
+                var popularEntries = await _rottenTomatoesClient.GetPopularShowEntriesAsync(cancellationToken);
+                dtos = await ResolvePopularShowsFromSourceAsync(popularEntries, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch Rotten Tomatoes popular shows. Falling back to curated TVMaze IDs.");
+            }
+
+            if (dtos.Count < PopularTopCount)
+            {
+                var fallbackShows = await ResolveShowsByIdsAsync(DefaultPopularFallbackTvMazeIds, cancellationToken);
+                AppendMissingShows(dtos, fallbackShows, PopularTopCount);
+            }
+
+            if (dtos.Count == 0)
+            {
+                _logger.LogWarning("Popular refresh produced zero shows; keeping existing cache.");
+                return;
+            }
 
             await _discoverRepository.RefreshDiscoverCacheAsync(PopularCategory, dtos, _options.PopularCacheTtlHours);
             _logger.LogInformation("Refreshed popular shows cache with {Count} shows.", dtos.Count);
@@ -124,7 +171,7 @@ public class DiscoverService(
                 foreach (var title in curatedTitles)
                 {
                     var searchResults = await _tvMazeClient.SearchShowsAsync(title);
-                    var selectedShow = SelectBestMatch(title, searchResults);
+                    var selectedShow = SelectBestMatch(title, null, searchResults);
                     if (selectedShow is null)
                     {
                         _logger.LogWarning("All-time curated title '{Title}' could not be resolved from TVMaze.", title);
@@ -195,7 +242,68 @@ public class DiscoverService(
         };
     }
 
-    private static TvMazeShow? SelectBestMatch(string title, IReadOnlyList<TvMazeSearchResult> searchResults)
+    private async Task<List<ShowSearchItemDto>> ResolvePopularShowsFromSourceAsync(
+        IReadOnlyList<RottenTomatoesPopularEntry> popularEntries,
+        CancellationToken cancellationToken)
+    {
+        var dtos = new List<ShowSearchItemDto>();
+        var seenShowIds = new HashSet<int>();
+
+        foreach (var entry in popularEntries.OrderBy(entry => entry.Rank))
+        {
+            var searchResults = await _tvMazeClient.SearchShowsAsync(entry.Title, cancellationToken);
+            var selectedShow = SelectBestMatch(entry.Title, entry.YearHint, searchResults);
+            if (selectedShow is null)
+            {
+                _logger.LogWarning("Popular title '{Title}' could not be resolved from TVMaze.", entry.Title);
+                continue;
+            }
+
+            if (!seenShowIds.Add(selectedShow.Id))
+            {
+                _logger.LogInformation("Skipping duplicate popular show '{Title}' (ID {TvMazeId}).", selectedShow.Name, selectedShow.Id);
+                continue;
+            }
+
+            dtos.Add(MapToDto(selectedShow));
+        }
+
+        return dtos;
+    }
+
+    private async Task<List<ShowSearchItemDto>> ResolveShowsByIdsAsync(IReadOnlyList<int> showIds, CancellationToken cancellationToken)
+    {
+        var shows = await _tvMazeClient.GetShowsByIdsAsync(showIds, cancellationToken);
+
+        return shows
+            .Select(result => result.Show)
+            .Where(show => show is not null)
+            .Select(show => MapToDto(show!))
+            .DistinctBy(dto => dto.TvMazeId)
+            .ToList();
+    }
+
+    private static void AppendMissingShows(List<ShowSearchItemDto> target, IReadOnlyList<ShowSearchItemDto> fallbackShows, int maxCount)
+    {
+        var existingIds = target.Select(show => show.TvMazeId).ToHashSet();
+
+        foreach (var fallbackShow in fallbackShows)
+        {
+            if (target.Count >= maxCount)
+            {
+                break;
+            }
+
+            if (!existingIds.Add(fallbackShow.TvMazeId))
+            {
+                continue;
+            }
+
+            target.Add(fallbackShow);
+        }
+    }
+
+    private static TvMazeShow? SelectBestMatch(string title, int? yearHint, IReadOnlyList<TvMazeSearchResult> searchResults)
     {
         var candidates = searchResults
             .Select(result => result.Show)
@@ -210,15 +318,46 @@ public class DiscoverService(
 
         var normalizedTitle = NormalizeTitle(title);
 
-        var exact = candidates.FirstOrDefault(show =>
-            string.Equals(NormalizeTitle(show.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase));
+        if (yearHint is not null)
+        {
+            var exactYearMatch = candidates
+                .Where(show => string.Equals(NormalizeTitle(show.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase))
+                .Where(show => GetPremieredYear(show) == yearHint)
+                .OrderByDescending(show => show.Rating?.Average ?? 0)
+                .FirstOrDefault();
+
+            if (exactYearMatch is not null)
+            {
+                return exactYearMatch;
+            }
+        }
+
+        var exact = candidates
+            .Where(show => string.Equals(NormalizeTitle(show.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(show => show.Rating?.Average ?? 0)
+            .FirstOrDefault();
         if (exact is not null)
         {
             return exact;
         }
 
-        var startsWith = candidates.FirstOrDefault(show =>
-            NormalizeTitle(show.Name).StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase));
+        if (yearHint is not null)
+        {
+            var yearMatch = candidates
+                .Where(show => GetPremieredYear(show) == yearHint)
+                .OrderByDescending(show => show.Rating?.Average ?? 0)
+                .FirstOrDefault();
+
+            if (yearMatch is not null)
+            {
+                return yearMatch;
+            }
+        }
+
+        var startsWith = candidates
+            .Where(show => NormalizeTitle(show.Name).StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(show => show.Rating?.Average ?? 0)
+            .FirstOrDefault();
         if (startsWith is not null)
         {
             return startsWith;
@@ -227,6 +366,18 @@ public class DiscoverService(
         return candidates
             .OrderByDescending(show => show.Rating?.Average ?? 0)
             .FirstOrDefault();
+    }
+
+    private static int? GetPremieredYear(TvMazeShow show)
+    {
+        if (string.IsNullOrWhiteSpace(show.Premiered))
+        {
+            return null;
+        }
+
+        return DateOnly.TryParse(show.Premiered, out var premieredDate)
+            ? premieredDate.Year
+            : null;
     }
 
     private static string NormalizeTitle(string value)

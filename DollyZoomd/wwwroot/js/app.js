@@ -20,17 +20,6 @@ function updateNavAuth() {
         };
         nav.appendChild(chip);
 
-        const seriesLink = document.createElement("a");
-        seriesLink.href = "#diary";
-        seriesLink.className = "nav-link nav-link-auth";
-        seriesLink.dataset.page = "diary";
-        seriesLink.textContent = "TV Series";
-        seriesLink.onclick = (event) => {
-            event.preventDefault();
-            navigate("diary", { force: true });
-        };
-        nav.appendChild(seriesLink);
-
         const logoutBtn = document.createElement("button");
         logoutBtn.className = "btn btn-link";
         logoutBtn.textContent = "Sign out";

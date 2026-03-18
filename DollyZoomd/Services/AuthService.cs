@@ -21,6 +21,11 @@ public class AuthService(IAuthRepository authRepository, IOptions<JwtOptions> jw
         var username = request.Username.Trim();
         var email = request.Email.Trim().ToLowerInvariant();
 
+        if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Passwords do not match.", nameof(request.ConfirmPassword));
+        }
+
         if (await authRepository.UsernameExistsAsync(username, cancellationToken))
         {
             throw new InvalidOperationException("Username is already taken.");
@@ -45,12 +50,15 @@ public class AuthService(IAuthRepository authRepository, IOptions<JwtOptions> jw
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var email = request.Email.Trim().ToLowerInvariant();
+        var identifier = request.Identifier.Trim();
+        var normalizedEmail = identifier.ToLowerInvariant();
 
-        var user = await authRepository.GetByEmailAsync(email, cancellationToken);
+        // Check email first, then username; allows either login style.
+        var user = await authRepository.GetByEmailAsync(normalizedEmail, cancellationToken)
+            ?? await authRepository.GetByUsernameAsync(identifier, cancellationToken);
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("Invalid email or password.");
+            throw new UnauthorizedAccessException("Invalid username/email or password.");
         }
 
         return BuildAuthResponse(user);

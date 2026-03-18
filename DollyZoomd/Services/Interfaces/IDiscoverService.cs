@@ -9,6 +9,13 @@ namespace DollyZoomd.Services.Interfaces;
 public interface IDiscoverService
 {
     /// <summary>
+    /// Ensures the popular discover cache is fresh.
+    /// Used by background refresh automation and request-time stale checks.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task EnsurePopularShowsFreshAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves popular shows for the "Popular Right Now" carousel.
     /// Implements lazy refresh: checks cache expiration and refreshes if needed.
     /// </summary>

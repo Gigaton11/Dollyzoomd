@@ -12,10 +12,11 @@ public class ProfileRepository(AppDbContext dbContext) : IProfileRepository
     public Task<User?> GetUserByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
         var normalizedUsername = (username ?? string.Empty).Trim();
+        var normalizedUsernameUpper = normalizedUsername.ToUpperInvariant();
 
         return dbContext.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => EF.Functions.ILike(u.Username, normalizedUsername), cancellationToken);
+            .FirstOrDefaultAsync(u => u.Username.ToUpper() == normalizedUsernameUpper, cancellationToken);
     }
 
     public async Task<WatchlistSummaryDto> GetWatchlistSummaryAsync(Guid userId, CancellationToken cancellationToken = default)

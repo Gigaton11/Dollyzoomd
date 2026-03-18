@@ -151,62 +151,69 @@ export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove }
     }
 
     /* controls */
-    const controls = document.createElement("div");
-    controls.className = "wl-controls";
+    const hasControls = typeof onStatusChange === "function"
+        || typeof onRate === "function"
+        || typeof onRemove === "function";
 
-    if (onStatusChange) {
-        const sel = document.createElement("select");
-        sel.className = "input-field";
-        sel.style.cssText = "font-size:0.78rem;padding:0.28rem 2rem 0.28rem 0.55rem;";
-        WATCH_STATUS.forEach(s => {
-            const opt = document.createElement("option");
-            opt.value = s.value;
-            opt.textContent = s.label;
-            if (s.value === entry.status) opt.selected = true;
-            sel.appendChild(opt);
-        });
+    if (hasControls) {
+        const controls = document.createElement("div");
+        controls.className = "wl-controls";
 
-        const updateBtn = document.createElement("button");
-        updateBtn.className = "btn btn-ghost btn-sm";
-        updateBtn.textContent = "Update";
-        updateBtn.onclick = () => onStatusChange(entry.showId, Number(sel.value));
+        if (onStatusChange) {
+            const sel = document.createElement("select");
+            sel.className = "input-field";
+            sel.style.cssText = "font-size:0.78rem;padding:0.28rem 2rem 0.28rem 0.55rem;";
+            WATCH_STATUS.forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = s.value;
+                opt.textContent = s.label;
+                if (s.value === entry.status) opt.selected = true;
+                sel.appendChild(opt);
+            });
 
-        controls.appendChild(sel);
-        controls.appendChild(updateBtn);
+            const updateBtn = document.createElement("button");
+            updateBtn.className = "btn btn-ghost btn-sm";
+            updateBtn.textContent = "Update";
+            updateBtn.onclick = () => onStatusChange(entry.showId, Number(sel.value));
+
+            controls.appendChild(sel);
+            controls.appendChild(updateBtn);
+        }
+
+        if (onRate) {
+            const rateInput = document.createElement("input");
+            rateInput.type = "number";
+            rateInput.min = "1";
+            rateInput.max = "10";
+            rateInput.step = "1";
+            rateInput.placeholder = "1-10";
+            rateInput.className = "input-field";
+            rateInput.style.cssText = "font-size:0.78rem;padding:0.28rem 0.5rem;";
+            if (entry.rating != null) rateInput.value = entry.rating;
+
+            const rateBtn = document.createElement("button");
+            rateBtn.className = "btn btn-ghost btn-sm";
+            rateBtn.textContent = "Rate";
+            rateBtn.onclick = () => {
+                const val = Number(rateInput.value);
+                if (val >= 1 && val <= 10) onRate(entry.showId, val);
+            };
+
+            controls.appendChild(rateInput);
+            controls.appendChild(rateBtn);
+        }
+
+        if (onRemove) {
+            const removeBtn = document.createElement("button");
+            removeBtn.className = "btn btn-danger btn-sm";
+            removeBtn.textContent = "Remove";
+            removeBtn.onclick = () => onRemove(entry.showId);
+            controls.appendChild(removeBtn);
+        }
+
+        body.appendChild(controls);
     }
 
-    if (onRate) {
-        const rateInput = document.createElement("input");
-        rateInput.type = "number";
-        rateInput.min = "1";
-        rateInput.max = "10";
-        rateInput.step = "1";
-        rateInput.placeholder = "1-10";
-        rateInput.className = "input-field";
-        rateInput.style.cssText = "font-size:0.78rem;padding:0.28rem 0.5rem;";
-        if (entry.rating != null) rateInput.value = entry.rating;
-
-        const rateBtn = document.createElement("button");
-        rateBtn.className = "btn btn-ghost btn-sm";
-        rateBtn.textContent = "Rate";
-        rateBtn.onclick = () => {
-            const val = Number(rateInput.value);
-            if (val >= 1 && val <= 10) onRate(entry.showId, val);
-        };
-
-        controls.appendChild(rateInput);
-        controls.appendChild(rateBtn);
-    }
-
-    if (onRemove) {
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "btn btn-danger btn-sm";
-        removeBtn.textContent = "Remove";
-        removeBtn.onclick = () => onRemove(entry.showId);
-        controls.appendChild(removeBtn);
-    }
-
-    body.appendChild(controls);
     item.appendChild(body);
     return item;
 }

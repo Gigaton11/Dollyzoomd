@@ -41,7 +41,33 @@ function setLoadingState(container, message = "Loading…") {
     container.innerHTML = `<div style="color:var(--text-muted);font-size:0.85rem;">${message}</div>`;
 }
 
-function renderProfileView(profile, container, { enableOwnActions = true } = {}) {
+function wirePasswordPeekButtons(form) {
+    const toggleButtons = form.querySelectorAll("button[data-password-toggle]");
+
+    toggleButtons.forEach((toggleButton) => {
+        const targetName = toggleButton.getAttribute("data-password-toggle");
+        if (!targetName) return;
+
+        const input = form.querySelector(`input[name="${targetName}"]`);
+        if (!input) return;
+
+        toggleButton.addEventListener("click", () => {
+            const reveal = input.type === "password";
+            input.type = reveal ? "text" : "password";
+            toggleButton.textContent = reveal ? "Hide" : "Show";
+            toggleButton.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+            toggleButton.setAttribute("aria-pressed", String(reveal));
+            input.focus({ preventScroll: true });
+
+            if (typeof input.setSelectionRange === "function") {
+                const cursor = input.value.length;
+                input.setSelectionRange(cursor, cursor);
+            }
+        });
+    });
+}
+
+function renderProfileView(profile, container, { enableOwnActions = true, watchlistEntries = [] } = {}) {
     container.innerHTML = "";
 
     const isOwn = enableOwnActions && Auth.isAuthenticated() && Auth.getUsername()?.toLowerCase() === profile.username?.toLowerCase();
@@ -93,8 +119,14 @@ function renderProfileView(profile, container, { enableOwnActions = true } = {})
                     try {
                         await Api.removeFavorite(showId);
                         showToast("Removed from favorites.", "success");
-                        const updated = await Api.getProfile(profile.username);
-                        renderProfileView(updated, container, { enableOwnActions: true });
+                        const [updatedProfile, updatedWatchlist] = await Promise.all([
+                            Api.getProfile(profile.username),
+                            Api.getWatchlist(),
+                        ]);
+                        renderProfileView(updatedProfile, container, {
+                            enableOwnActions: true,
+                            watchlistEntries: Array.isArray(updatedWatchlist) ? updatedWatchlist : [],
+                        });
                     } catch (err) {
                         showToast(err.message, "error");
                     }
@@ -116,15 +148,32 @@ function renderProfileView(profile, container, { enableOwnActions = true } = {})
     }
 
     if (isOwn) {
-        const hr = document.createElement("hr");
-        hr.className = "divider";
-        container.appendChild(hr);
+        const watchlistSection = document.createElement("div");
+        watchlistSection.className = "profile-watchlist-section fade-in";
 
-        const link = document.createElement("button");
-        link.className = "btn btn-ghost";
-        link.textContent = "Watchlist";
-        link.onclick = () => navigate("diary");
-        container.appendChild(link);
+        const watchlistHeading = document.createElement("div");
+        watchlistHeading.className = "profile-watchlist-heading";
+        watchlistHeading.innerHTML = `<p class="section-eyebrow">Watchlist</p><h3>TV Series</h3>`;
+        watchlistSection.appendChild(watchlistHeading);
+
+        const sortedEntries = Array.isArray(watchlistEntries)
+            ? [...watchlistEntries].sort((a, b) => new Date(b.updatedAtUtc).getTime() - new Date(a.updatedAtUtc).getTime())
+            : [];
+
+        if (!sortedEntries.length) {
+            watchlistSection.appendChild(emptyState("📋", "Your Watchlist is empty. Search for a show to add one."));
+        } else {
+            const watchlistGrid = document.createElement("div");
+            watchlistGrid.className = "profile-watchlist-grid";
+
+            sortedEntries.forEach((entry) => {
+                watchlistGrid.appendChild(createWatchlistEntry(entry));
+            });
+
+            watchlistSection.appendChild(watchlistGrid);
+        }
+
+        container.appendChild(watchlistSection);
     }
 }
 
@@ -134,7 +183,10 @@ export function renderHome() {
     const page = document.createElement("div");
     page.className = "home-page fade-in";
 
-    const hero = buildAuthHero();
+    const hero = buildAuthHero({
+        isAuthenticated: Auth.isAuthenticated(),
+        username: Auth.getUsername(),
+    });
     page.appendChild(hero);
 
     const popularMount = document.createElement("section");
@@ -146,45 +198,6 @@ export function renderHome() {
     allTimeMount.className = "carousel-section";
     allTimeMount.appendChild(emptyState("⏳", "Loading All-Time Greats…"));
     page.appendChild(allTimeMount);
-
-    if (Auth.isAuthenticated()) {
-        const memberCard = document.createElement("section");
-        memberCard.className = "card home-member-card";
-
-        const header = document.createElement("p");
-        header.className = "section-eyebrow";
-        header.textContent = "Signed In";
-
-        const title = document.createElement("h3");
-        title.textContent = `Welcome back, ${Auth.getUsername()}.`;
-
-        const copy = document.createElement("p");
-        copy.style.color = "var(--text-muted)";
-        copy.style.marginTop = "0.35rem";
-        copy.textContent = "Manage your watch progress and profile from here.";
-
-        const actions = document.createElement("div");
-        actions.style.cssText = "display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:1rem;";
-
-        const toDiary = document.createElement("button");
-        toDiary.className = "btn btn-primary";
-        toDiary.textContent = "Watchlist";
-        toDiary.onclick = () => navigate("diary");
-
-        const toProfile = document.createElement("button");
-        toProfile.className = "btn btn-ghost";
-        toProfile.textContent = "Profile";
-        toProfile.onclick = () => navigate("profile");
-
-        actions.appendChild(toDiary);
-        actions.appendChild(toProfile);
-
-        memberCard.appendChild(header);
-        memberCard.appendChild(title);
-        memberCard.appendChild(copy);
-        memberCard.appendChild(actions);
-        page.appendChild(memberCard);
-    }
 
     root.appendChild(page);
 
@@ -207,9 +220,45 @@ export function renderLogin() {
     root.appendChild(page);
 }
 
-function buildAuthHero() {
+function buildAuthHero({ isAuthenticated = false, username = "" } = {}) {
     const hero = document.createElement("div");
     hero.className = "auth-hero";
+
+    if (isAuthenticated) {
+        const normalizedUsername = String(username ?? "").trim().replace(/^@+/, "") || "member";
+
+        hero.classList.add("auth-hero-returning");
+
+        const eyebrow = document.createElement("p");
+        eyebrow.className = "section-eyebrow";
+        eyebrow.textContent = "To Binge or Not to Binge";
+
+        const heading = document.createElement("h1");
+        heading.className = "auth-hero-returning-title";
+        heading.append(document.createTextNode("Welcome back "));
+
+        const profileLink = document.createElement("a");
+        profileLink.href = "#profile";
+        profileLink.className = "auth-hero-user-link";
+        profileLink.textContent = `@${normalizedUsername}`;
+        profileLink.onclick = (event) => {
+            event.preventDefault();
+            navigate("profile", { force: true });
+        };
+
+        heading.appendChild(profileLink);
+        heading.append(document.createTextNode("."));
+
+        const copy = document.createElement("p");
+        copy.textContent = "Jump back update your Watchlist and keep your TV story moving.";
+
+        hero.appendChild(eyebrow);
+        hero.appendChild(heading);
+        hero.appendChild(copy);
+
+        return hero;
+    }
+
     hero.innerHTML = `
         <p class="section-eyebrow">TV Tracker</p>
         <h1>Your shows<br><em>Your story</em></h1>
@@ -250,14 +299,19 @@ function buildHomeAuthCard() {
         form.className = "auth-form";
         form.innerHTML = `
             <div class="input-group">
-                <label class="input-label">Email</label>
-                <input class="input-field" type="email" name="email" required placeholder="you@example.com" autocomplete="email">
+                <label class="input-label">Username or Email</label>
+                <input class="input-field" type="text" name="identifier" required placeholder="username or you@example.com" autocomplete="username">
             </div>
             <div class="input-group">
                 <label class="input-label">Password</label>
-                <input class="input-field" type="password" name="password" required placeholder="••••••••" autocomplete="current-password">
+                <div class="password-field-wrap">
+                    <input class="input-field" type="password" name="password" required minlength="8" placeholder="••••••••" autocomplete="current-password">
+                    <button class="password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary btn-full">Login</button>`;
+
+        wirePasswordPeekButtons(form);
 
         form.onsubmit = async (event) => {
             event.preventDefault();
@@ -268,12 +322,11 @@ function buildHomeAuthCard() {
             try {
                 const res = await Api.login(data);
                 Auth.setAuth(res);
-                showToast(`Welcome back, ${res.username}!`, "success");
+                showToast(`Welcome back ${res.username}!`, "success");
                 form.reset();
                 navigate("profile");
             } catch (err) {
                 showToast(err.message, "error");
-                form.reset();
                 btn.disabled = false;
                 btn.textContent = "Login";
             }
@@ -297,14 +350,32 @@ function buildHomeAuthCard() {
             </div>
             <div class="input-group">
                 <label class="input-label">Password</label>
-                <input class="input-field" type="password" name="password" required placeholder="••••••••" autocomplete="new-password">
+                <div class="password-field-wrap">
+                    <input class="input-field" type="password" name="password" required minlength="8" placeholder="••••••••" autocomplete="new-password">
+                    <button class="password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label class="input-label">Confirm Password</label>
+                <div class="password-field-wrap">
+                    <input class="input-field" type="password" name="confirmPassword" required minlength="8" placeholder="••••••••" autocomplete="new-password">
+                    <button class="password-toggle" type="button" data-password-toggle="confirmPassword" aria-label="Show password" aria-pressed="false">Show</button>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary btn-full">Create Account</button>`;
+
+        wirePasswordPeekButtons(form);
 
         form.onsubmit = async (event) => {
             event.preventDefault();
             const btn = form.querySelector("button[type=submit]");
             const data = Object.fromEntries(new FormData(form));
+
+            if (data.password !== data.confirmPassword) {
+                showToast("Passwords do not match.", "error");
+                return;
+            }
+
             btn.disabled = true;
             btn.textContent = "Creating account…";
             try {
@@ -315,7 +386,6 @@ function buildHomeAuthCard() {
                 navigate("profile");
             } catch (err) {
                 showToast(err.message, "error");
-                form.reset();
                 btn.disabled = false;
                 btn.textContent = "Create Account";
             }
@@ -747,7 +817,23 @@ export async function renderProfile() {
     setLoadingState(profileView);
 
     try {
-        const profile = await Api.getProfile(username);
+        const [profileResult, watchlistResult] = await Promise.allSettled([
+            Api.getProfile(username),
+            Api.getWatchlist(),
+        ]);
+
+        if (profileResult.status === "rejected") {
+            throw profileResult.reason;
+        }
+
+        const profile = profileResult.value;
+        const watchlistEntries = watchlistResult.status === "fulfilled" && Array.isArray(watchlistResult.value)
+            ? watchlistResult.value
+            : [];
+
+        if (watchlistResult.status === "rejected") {
+            showToast(watchlistResult.reason?.message ?? "Unable to load your Watchlist right now.", "error");
+        }
 
         if (!Array.isArray(profile.favorites) || profile.favorites.length === 0) {
             try {
@@ -760,7 +846,10 @@ export async function renderProfile() {
             }
         }
 
-        renderProfileView(profile, profileView, { enableOwnActions: true });
+        renderProfileView(profile, profileView, {
+            enableOwnActions: true,
+            watchlistEntries,
+        });
     } catch (err) {
         profileView.innerHTML = "";
         profileView.appendChild(emptyState("⚠️", err.message));

@@ -213,6 +213,43 @@ h4 { font-size: 0.95rem; font-weight: 600; line-height: 1.4; }
 /* ── Inputs ── */
 .input-group { display: grid; gap: 0.35rem; }
 
+.password-field-wrap {
+    position: relative;
+}
+
+.password-field-wrap .input-field {
+    padding-right: 4.2rem;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.35rem;
+    transform: translateY(-50%);
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.22rem 0.45rem;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.password-toggle:hover {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border-light);
+}
+
+.password-toggle:focus-visible {
+    outline: none;
+    color: var(--text);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
 .input-label {
     font-size: 0.75rem;
     font-weight: 600;
@@ -455,6 +492,27 @@ select.input-field {
     justify-content: start;
 }
 
+.profile-watchlist-section {
+    margin-top: 2rem;
+}
+
+.profile-watchlist-heading {
+    margin-bottom: 1rem;
+}
+
+.profile-watchlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--favorites-card-w), var(--favorites-card-w)));
+    gap: 0.85rem;
+    justify-content: start;
+}
+
+.profile-watchlist-grid .wl-entry {
+    width: var(--favorites-card-w);
+    min-width: var(--favorites-card-w);
+    max-width: var(--favorites-card-w);
+}
+
 .fav-card { position: relative; }
 .fav-card .order-badge {
     position: absolute;
@@ -508,6 +566,55 @@ select.input-field {
 .auth-hero h1 { margin-bottom: 1rem; }
 .auth-hero h1 em { font-style: normal; color: var(--accent); }
 .auth-hero p { color: var(--text-muted); max-width: 44ch; line-height: 1.7; }
+
+.auth-hero-returning {
+    width: min(100%, 860px);
+    margin: 0 auto;
+    text-align: center;
+    display: grid;
+    justify-items: center;
+    gap: 0.75rem;
+    padding: clamp(1.75rem, 4vw, 2.6rem) clamp(1.25rem, 3vw, 2.25rem);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    background:
+        radial-gradient(130% 110% at 50% -10%, rgba(0, 192, 48, 0.2) 0%, rgba(0, 192, 48, 0.06) 38%, rgba(30, 37, 48, 0.94) 100%),
+        linear-gradient(180deg, rgba(20, 24, 28, 0.35) 0%, rgba(20, 24, 28, 0.85) 100%);
+    box-shadow: var(--shadow-lg);
+}
+
+.auth-hero-returning .section-eyebrow {
+    margin-bottom: 0;
+}
+
+.auth-hero-returning-title {
+    margin-bottom: 0;
+}
+
+.auth-hero-returning p {
+    margin: 0;
+    max-width: 56ch;
+}
+
+.auth-hero-user-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-decoration-color: rgba(0, 192, 48, 0.35);
+    text-underline-offset: 0.18em;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.auth-hero-user-link:hover {
+    color: #42de6c;
+    text-decoration-color: rgba(66, 222, 108, 0.55);
+}
+
+.auth-hero-user-link:focus-visible {
+    outline: none;
+    color: #42de6c;
+    text-decoration-color: rgba(66, 222, 108, 0.7);
+}
 
 .auth-features {
     margin-top: 2.2rem;
@@ -748,16 +855,6 @@ select.input-field {
     min-width: 0;
 }
 
-.home-member-card {
-    width: min(100%, 460px);
-    padding: 1.2rem;
-    justify-self: start;
-}
-
-.home-member-card h3 {
-    overflow-wrap: anywhere;
-}
-
 .home-page .auth-card {
     max-width: 440px;
 }
@@ -875,6 +972,8 @@ select.input-field {
 @media (max-width: 860px) {
     .auth-page { grid-template-columns: 1fr; }
     .auth-hero { display: none; }
+    .home-page .auth-hero { display: block; }
+    .auth-hero-returning { width: 100%; }
     .favorites-grid { grid-template-columns: repeat(auto-fill, minmax(var(--favorites-card-w), var(--favorites-card-w))); }
     .stats-grid { grid-template-columns: repeat(3, 1fr); }
     .carousel-item {
@@ -892,11 +991,12 @@ select.input-field {
     .show-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 128px)); gap: 0.75rem; justify-content: start; }
     .favorites-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 128px)); gap: 0.75rem; justify-content: start; }
     .stack-list { grid-template-columns: repeat(auto-fill, minmax(128px, 128px)); gap: 0.75rem; }
+    .profile-watchlist-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 128px)); gap: 0.75rem; }
+    .profile-watchlist-grid .wl-entry { width: 128px; min-width: 128px; max-width: 128px; }
     .wl-entry { width: 128px; min-width: 128px; max-width: 128px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .section-header { flex-direction: column; align-items: flex-start; }
     .wl-controls { gap: 0.25rem; }
-    .home-member-card { width: 100%; }
     .carousel-header { margin-bottom: 0.75rem; }
     .carousel-edge-btn {
         width: 28px;
