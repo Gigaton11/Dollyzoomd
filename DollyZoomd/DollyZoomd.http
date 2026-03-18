@@ -1,0 +1,6 @@
+@DollyZoomd_HostAddress = http://localhost:5265
+
+GET {{DollyZoomd_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
