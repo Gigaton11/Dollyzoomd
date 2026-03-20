@@ -13,9 +13,34 @@ export function createStatusBadge(statusValue) {
     return span;
 }
 
-export function createShowCard(show, { onAddWatchlist, onAddFavorite } = {}) {
+export function createShowCard(show, { onAddWatchlist, onAddFavorite, onOpenShow } = {}) {
     const article = document.createElement("article");
     article.className = "card show-card fade-in";
+
+    if (typeof onOpenShow === "function") {
+        article.classList.add("show-card-clickable");
+        article.setAttribute("role", "link");
+        article.setAttribute("tabindex", "0");
+        article.setAttribute("aria-label", `Open details for ${show.name}`);
+
+        const openDetails = () => onOpenShow(show);
+
+        article.addEventListener("click", (event) => {
+            if (event.target instanceof Element && event.target.closest("button")) {
+                return;
+            }
+            openDetails();
+        });
+
+        article.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+
+            event.preventDefault();
+            openDetails();
+        });
+    }
 
     /* poster */
     const wrap = document.createElement("div");
@@ -79,7 +104,10 @@ export function createShowCard(show, { onAddWatchlist, onAddFavorite } = {}) {
         const btn = document.createElement("button");
         btn.className = "btn btn-ghost btn-sm";
         btn.textContent = "+ Watchlist";
-        btn.onclick = () => onAddWatchlist(show);
+        btn.onclick = (event) => {
+            event.stopPropagation();
+            onAddWatchlist(show);
+        };
         actions.appendChild(btn);
     }
 
@@ -87,7 +115,10 @@ export function createShowCard(show, { onAddWatchlist, onAddFavorite } = {}) {
         const btn = document.createElement("button");
         btn.className = "btn btn-ghost btn-sm";
         btn.textContent = "★ Fav";
-        btn.onclick = () => onAddFavorite(show);
+        btn.onclick = (event) => {
+            event.stopPropagation();
+            onAddFavorite(show);
+        };
         actions.appendChild(btn);
     }
 
@@ -96,9 +127,39 @@ export function createShowCard(show, { onAddWatchlist, onAddFavorite } = {}) {
     return article;
 }
 
-export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove } = {}) {
+export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove, onOpenShow } = {}) {
     const item = document.createElement("div");
     item.className = "card wl-entry";
+
+    if (typeof onOpenShow === "function") {
+        item.classList.add("show-card-clickable");
+        item.setAttribute("role", "link");
+        item.setAttribute("tabindex", "0");
+        item.setAttribute("aria-label", `Open details for ${entry.showName}`);
+
+        const openDetails = () => onOpenShow(entry);
+
+        item.addEventListener("click", (event) => {
+            if (event.target instanceof Element && event.target.closest("button, input, select, textarea, a, label")) {
+                return;
+            }
+
+            openDetails();
+        });
+
+        item.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+
+            if (event.target instanceof Element && event.target.closest("button, input, select, textarea, a, label")) {
+                return;
+            }
+
+            event.preventDefault();
+            openDetails();
+        });
+    }
 
     /* thumbnail */
     if (entry.posterUrl) {
@@ -218,9 +279,38 @@ export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove }
     return item;
 }
 
-export function createFavoriteCard(fav, { onRemove, readonly = false } = {}) {
+export function createFavoriteCard(fav, { onRemove, readonly = false, onOpenShow } = {}) {
     const article = document.createElement("article");
     article.className = "card show-card fav-card fade-in";
+
+    if (typeof onOpenShow === "function") {
+        article.classList.add("show-card-clickable");
+        article.setAttribute("role", "link");
+        article.setAttribute("tabindex", "0");
+        article.setAttribute("aria-label", `Open details for ${fav.showName}`);
+
+        const openDetails = () => onOpenShow(fav);
+
+        article.addEventListener("click", (event) => {
+            if (event.target instanceof Element && event.target.closest("button")) {
+                return;
+            }
+            openDetails();
+        });
+
+        article.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+
+            if (event.target instanceof Element && event.target.closest("button")) {
+                return;
+            }
+
+            event.preventDefault();
+            openDetails();
+        });
+    }
 
     const wrap = document.createElement("div");
     wrap.className = "poster-wrap";

@@ -1,6 +1,28 @@
-const VALID_PAGES = ["home", "login", "search", "diary", "profile"];
+const VALID_PAGES = ["home", "login", "search", "diary", "profile", "show-details"];
 
 let _handlers = {};
+
+function parseRoute() {
+    const hash = location.hash.replace(/^#/, "").trim().toLowerCase();
+
+    if (!hash || hash === "home") {
+        return { page: "home", params: {} };
+    }
+
+    const showMatch = hash.match(/^shows\/(\d+)$/);
+    if (showMatch) {
+        return {
+            page: "show-details",
+            params: { id: Number(showMatch[1]) },
+        };
+    }
+
+    if (VALID_PAGES.includes(hash)) {
+        return { page: hash, params: {} };
+    }
+
+    return { page: "home", params: {} };
+}
 
 export function initRouter(handlers) {
     _handlers = handlers;
@@ -8,17 +30,28 @@ export function initRouter(handlers) {
 }
 
 export function dispatch() {
-    const page = currentPage();
-    updateNavActive(page);
-    const fn = _handlers[page];
-    if (fn) fn();
+    const route = parseRoute();
+    updateNavActive(route.page);
+    const fn = _handlers[route.page];
+    if (fn) fn(route.params);
 }
 
-export function navigate(page, { force = false } = {}) {
+export function navigate(page, { force = false, params = {} } = {}) {
     const raw = String(page ?? "home").replace(/^#/, "").trim().toLowerCase();
-    const target = VALID_PAGES.includes(raw) ? raw : "home";
 
-    if (currentPage() === target) {
+    let target = "home";
+    if (raw === "show-details") {
+        const id = Number(params.id);
+        if (Number.isInteger(id) && id > 0) {
+            target = `shows/${id}`;
+        }
+    } else if (VALID_PAGES.includes(raw)) {
+        target = raw;
+    }
+
+    const currentHash = location.hash.replace(/^#/, "").trim().toLowerCase();
+
+    if (currentHash === target) {
         if (force) dispatch();
         return;
     }
@@ -27,8 +60,7 @@ export function navigate(page, { force = false } = {}) {
 }
 
 export function currentPage() {
-    const hash = location.hash.replace(/^#/, "").trim().toLowerCase();
-    return VALID_PAGES.includes(hash) ? hash : "home";
+    return parseRoute().page;
 }
 
 export function updateNavActive(page) {

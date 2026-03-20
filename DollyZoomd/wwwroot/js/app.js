@@ -1,7 +1,7 @@
-import * as Auth   from "./auth.js";
-import { initRouter, dispatch, navigate, currentPage, updateNavActive } from "./router.js";
-import { renderHome, renderLogin, renderSearch, renderDiary, renderProfile } from "./pages.js";
-import { showToast } from "./toast.js";
+import * as Auth   from "./auth.js?v=20260320d";
+import { initRouter, dispatch, navigate, currentPage, updateNavActive } from "./router.js?v=20260320d";
+import { renderHome, renderLogin, renderSearch, renderDiary, renderProfile, renderShowDetails } from "./pages.js?v=20260320d";
+import { showToast } from "./toast.js?v=20260320d";
 
 function updateNavAuth() {
     const nav = document.getElementById("nav-auth");
@@ -51,6 +51,7 @@ initRouter({
     search:  renderSearch,
     diary:   renderDiary,
     profile: renderProfile,
+    "show-details": renderShowDetails,
 });
 
 window.addEventListener("hashchange", () => {

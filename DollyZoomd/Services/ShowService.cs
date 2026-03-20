@@ -41,6 +41,76 @@ public class ShowService(ITvMazeClient tvMazeClient) : IShowService
         return mappedResults;
     }
 
+    public async Task<ShowDetailsDto> GetShowDetailsAsync(int showId, CancellationToken cancellationToken = default)
+    {
+        if (showId <= 0)
+        {
+            throw new ArgumentException("Show ID must be a positive integer.");
+        }
+
+        var showTask = tvMazeClient.GetShowByIdAsync(showId, cancellationToken);
+        var episodesTask = tvMazeClient.GetShowEpisodesAsync(showId, cancellationToken);
+        var castTask = tvMazeClient.GetShowCastAsync(showId, cancellationToken);
+
+        await Task.WhenAll(showTask, episodesTask, castTask);
+
+        var show = showTask.Result;
+        if (show is null)
+        {
+            throw new KeyNotFoundException("Show not found.");
+        }
+
+        var episodes = episodesTask.Result
+            .Where(episode => episode.Id > 0 && !string.IsNullOrWhiteSpace(episode.Name))
+            .Select(episode => new ShowDetailsEpisodeDto
+            {
+                EpisodeId = episode.Id,
+                Name = episode.Name,
+                Season = Math.Max(episode.Season, 0),
+                Number = Math.Max(episode.Number, 0),
+                AirDate = TryParseDateOnly(episode.Airdate),
+                SummaryHtml = episode.Summary,
+                ThumbnailUrl = episode.Image?.Medium ?? episode.Image?.Original
+            })
+            .OrderBy(episode => episode.Season)
+            .ThenBy(episode => episode.Number)
+            .ToList();
+
+        var cast = castTask.Result
+            .Where(member => member.Person is not null && !string.IsNullOrWhiteSpace(member.Person.Name))
+            .Select(member => new ShowDetailsCastMemberDto
+            {
+                PersonId = member.Person!.Id,
+                PersonName = member.Person.Name,
+                CharacterName = string.IsNullOrWhiteSpace(member.Character?.Name) ? "Unknown" : member.Character!.Name,
+                PersonImageUrl = member.Person.Image?.Medium
+                    ?? member.Person.Image?.Original
+                    ?? member.Character?.Image?.Medium
+                    ?? member.Character?.Image?.Original
+            })
+            .DistinctBy(member => member.PersonId > 0
+                ? $"id:{member.PersonId}"
+                : $"name:{member.PersonName.ToLowerInvariant()}")
+            .ToList();
+
+        return new ShowDetailsDto
+        {
+            TvMazeId = show.Id,
+            Name = show.Name,
+            PosterUrl = show.Image?.Original ?? show.Image?.Medium,
+            BannerUrl = show.Image?.Original ?? show.Image?.Medium,
+            SummaryHtml = show.Summary,
+            Genres = show.Genres?.Where(genre => !string.IsNullOrWhiteSpace(genre)).ToList() ?? [],
+            AverageRating = show.Rating?.Average,
+            NetworkName = show.Network?.Name ?? show.WebChannel?.Name,
+            Status = show.Status,
+            PremieredOn = TryParseDateOnly(show.Premiered),
+            EndedOn = TryParseDateOnly(show.Ended),
+            Episodes = episodes,
+            Cast = cast
+        };
+    }
+
     private static DateOnly? TryParseDateOnly(string? value)
     {
         return DateOnly.TryParse(value, out var parsedDate) ? parsedDate : null;

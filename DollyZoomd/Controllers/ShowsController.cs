@@ -18,4 +18,14 @@ public class ShowsController(IShowService showService) : ControllerBase
         var results = await showService.SearchShowsAsync(q, cancellationToken);
         return Ok(results);
     }
+
+    [HttpGet("{id:int}/details")]
+    [ProducesResponseType(typeof(ShowDetailsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ShowDetailsDto>> GetDetails([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        var details = await showService.GetShowDetailsAsync(id, cancellationToken);
+        return Ok(details);
+    }
 }

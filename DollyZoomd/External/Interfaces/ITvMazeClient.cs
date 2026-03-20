@@ -14,4 +14,8 @@ public interface ITvMazeClient
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of TvMazeSearchResult in the same order as showIds, excluding any that could not be fetched</returns>
     Task<IReadOnlyList<TvMazeSearchResult>> GetShowsByIdsAsync(IReadOnlyList<int> showIds, CancellationToken cancellationToken = default);
+
+    Task<TvMazeShow?> GetShowByIdAsync(int showId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TvMazeEpisode>> GetShowEpisodesAsync(int showId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TvMazeCastMember>> GetShowCastAsync(int showId, CancellationToken cancellationToken = default);
 }

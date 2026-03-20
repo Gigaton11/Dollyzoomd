@@ -1,4 +1,4 @@
-import * as Auth from "./auth.js";
+import * as Auth from "./auth.js?v=20260320d";
 
 export class ApiError extends Error {
     constructor(message, status) {
@@ -88,6 +88,7 @@ export const login     = (body) => request("/api/auth/login",     { method: "POS
 
 /* ── Shows ── */
 export const searchShows = (q)  => request(`/api/shows/search?q=${encodeURIComponent(q)}`);
+export const getShowDetails = (id) => request(`/api/shows/${encodeURIComponent(id)}/details`);
 
 /* ── Watchlist ── */
 export const getWatchlist        = ()            => request("/api/watchlist", { auth: true });

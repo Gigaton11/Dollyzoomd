@@ -1,4 +1,4 @@
-import { createShowCard } from "./components.js";
+import { createShowCard } from "./components.js?v=20260320d";
 
 /**
  * Creates a carousel section with title, navigation buttons, and horizontal scrolling card list.
@@ -9,9 +9,10 @@ import { createShowCard } from "./components.js";
  * @param {Object} options - Configuration object
  * @param {Function} options.onAddWatchlist - Callback when user clicks "+ Watchlist" button
  * @param {Function} options.onAddFavorite - Callback when user clicks "★ Fav" button
+ * @param {Function} options.onOpenShow - Callback when user clicks a show card
  * @returns {HTMLElement} Carousel section element
  */
-export function createCarouselSection(title, shows, { onAddWatchlist, onAddFavorite } = {}) {
+export function createCarouselSection(title, shows, { onAddWatchlist, onAddFavorite, onOpenShow } = {}) {
     const section = document.createElement("section");
     section.className = "carousel-section fade-in";
 
@@ -56,7 +57,7 @@ export function createCarouselSection(title, shows, { onAddWatchlist, onAddFavor
     shows.forEach((show) => {
         const cardContainer = document.createElement("div");
         cardContainer.className = "carousel-item";
-        const card = createShowCard(show, { onAddWatchlist, onAddFavorite });
+        const card = createShowCard(show, { onAddWatchlist, onAddFavorite, onOpenShow });
         cardContainer.appendChild(card);
         carousel.appendChild(cardContainer);
     });
