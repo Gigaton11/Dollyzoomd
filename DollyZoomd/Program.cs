@@ -66,6 +66,7 @@ builder.Services.AddAuthorization();
 
 // ── Discover Configuration ────────────────────────────────────────────────────
 builder.Services.Configure<DiscoverOptions>(builder.Configuration.GetSection(DiscoverOptions.SectionName));
+builder.Services.Configure<AvatarOptions>(builder.Configuration.GetSection(AvatarOptions.SectionName));
 
 // ── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
@@ -81,6 +82,8 @@ builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IDiscoverRepository, DiscoverRepository>();
 builder.Services.AddScoped<IDiscoverService, DiscoverService>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddHostedService<PopularShowsRefreshService>();
 
 // ── HTTP Client (TVMaze) ──────────────────────────────────────────────────────

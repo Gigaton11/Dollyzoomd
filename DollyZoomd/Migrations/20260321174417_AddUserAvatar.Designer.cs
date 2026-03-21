@@ -3,6 +3,7 @@ using System;
 using DollyZoomd.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,41 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DollyZoomd.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321174417_AddUserAvatar")]
+    partial class AddUserAvatar
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.3");
-
-            modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ShowId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasMaxLength(240)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("ShowId", "CreatedAtUtc");
-
-                    b.ToTable("comments", (string)null);
-                });
 
             modelBuilder.Entity("DollyZoomd.Models.DiscoverCache", b =>
                 {
@@ -149,31 +123,6 @@ namespace DollyZoomd.Migrations
                     b.ToTable("users", (string)null);
                 });
 
-            modelBuilder.Entity("DollyZoomd.Models.UserCommentVote", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("CommentId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsUpvote")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("CommentId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("user_comment_votes", (string)null);
-                });
-
             modelBuilder.Entity("DollyZoomd.Models.UserFavorite", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -224,25 +173,6 @@ namespace DollyZoomd.Migrations
                     b.ToTable("watchlist_entries", (string)null);
                 });
 
-            modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
-                {
-                    b.HasOne("DollyZoomd.Models.Show", "Show")
-                        .WithMany("Comments")
-                        .HasForeignKey("ShowId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("DollyZoomd.Models.User", "User")
-                        .WithMany("Comments")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Show");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("DollyZoomd.Models.DiscoverCache", b =>
                 {
                     b.HasOne("DollyZoomd.Models.Show", "Show")
@@ -252,25 +182,6 @@ namespace DollyZoomd.Migrations
                         .IsRequired();
 
                     b.Navigation("Show");
-                });
-
-            modelBuilder.Entity("DollyZoomd.Models.UserCommentVote", b =>
-                {
-                    b.HasOne("DollyZoomd.Models.Comment", "Comment")
-                        .WithMany("Votes")
-                        .HasForeignKey("CommentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("DollyZoomd.Models.User", "User")
-                        .WithMany("CommentVotes")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Comment");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("DollyZoomd.Models.UserFavorite", b =>
@@ -311,15 +222,8 @@ namespace DollyZoomd.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
-                {
-                    b.Navigation("Votes");
-                });
-
             modelBuilder.Entity("DollyZoomd.Models.Show", b =>
                 {
-                    b.Navigation("Comments");
-
                     b.Navigation("FavoritedBy");
 
                     b.Navigation("WatchlistEntries");
@@ -327,10 +231,6 @@ namespace DollyZoomd.Migrations
 
             modelBuilder.Entity("DollyZoomd.Models.User", b =>
                 {
-                    b.Navigation("CommentVotes");
-
-                    b.Navigation("Comments");
-
                     b.Navigation("Favorites");
 
                     b.Navigation("WatchlistEntries");

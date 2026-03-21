@@ -41,14 +41,22 @@ function extractErrorMessage(payload) {
 }
 
 async function request(url, { method = "GET", body, auth = false } = {}) {
-    const headers = { "Content-Type": "application/json" };
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+    const headers = {};
+
+    if (!isFormData) {
+        headers["Content-Type"] = "application/json";
+    }
+
     if (auth) {
         const token = Auth.getToken();
         if (token) headers["Authorization"] = `Bearer ${token}`;
     }
 
     const init = { method, headers };
-    if (body !== undefined) init.body = JSON.stringify(body);
+    if (body !== undefined) {
+        init.body = isFormData ? body : JSON.stringify(body);
+    }
 
     let res;
     try {
@@ -89,6 +97,21 @@ export const login     = (body) => request("/api/auth/login",     { method: "POS
 /* ── Shows ── */
 export const searchShows = (q)  => request(`/api/shows/search?q=${encodeURIComponent(q)}`);
 export const getShowDetails = (id) => request(`/api/shows/${encodeURIComponent(id)}/details`);
+export const getLatestComment = (showId) => request(`/api/shows/${encodeURIComponent(showId)}/comments/latest`, { auth: true });
+export const getShowComments = (showId) => request(`/api/shows/${encodeURIComponent(showId)}/comments`, { auth: true });
+export const addComment = (showId, body) => request(`/api/shows/${encodeURIComponent(showId)}/comments`, { method: "POST", body, auth: true });
+export const voteComment = (showId, commentId, isUpvote) => request(
+    `/api/shows/${encodeURIComponent(showId)}/comments/${encodeURIComponent(commentId)}/vote`,
+    { method: "PUT", body: { isUpvote }, auth: true }
+);
+export const removeCommentVote = (showId, commentId) => request(
+    `/api/shows/${encodeURIComponent(showId)}/comments/${encodeURIComponent(commentId)}/vote`,
+    { method: "DELETE", auth: true }
+);
+export const deleteComment = (showId, commentId) => request(
+    `/api/shows/${encodeURIComponent(showId)}/comments/${encodeURIComponent(commentId)}`,
+    { method: "DELETE", auth: true }
+);
 
 /* ── Watchlist ── */
 export const getWatchlist        = ()            => request("/api/watchlist", { auth: true });
@@ -104,6 +127,11 @@ export const removeFavorite = (showId) => request(`/api/favorites/${showId}`, { 
 
 /* ── Profile ── */
 export const getProfile = (username) => request(`/api/profile/${encodeURIComponent(username)}`);
+export const updateAvatar = (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request("/api/profile/avatar", { method: "PUT", body, auth: true });
+};
 
 /* ── Discover ── */
 export const getDiscoverPopular = (take = 20, skip = 0) => request(`/api/discover/popular?take=${take}&skip=${skip}`);

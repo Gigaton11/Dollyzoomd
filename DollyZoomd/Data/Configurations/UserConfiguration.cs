@@ -24,6 +24,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(255)
             .IsRequired();
 
+        builder.Property(x => x.AvatarFileName)
+            .HasMaxLength(255);
+
         builder.Property(x => x.CreatedAtUtc)
             .HasColumnType("timestamp with time zone")
             .IsRequired();

@@ -6,6 +6,9 @@ import { navigate } from "./router.js?v=20260320d";
 import * as Carousel from "./carousel.js?v=20260320d";
 
 const app = () => document.getElementById("app");
+const MAX_AVATAR_SIZE_BYTES = 8 * 1024 * 1024;
+const AVATAR_ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const AVATAR_ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const IMAGE_PLACEHOLDER_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'><rect width='400' height='225' fill='#2c3440'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#7b8d9a' font-family='Inter,Segoe UI,sans-serif' font-size='22'>No Image</text></svg>"
 )}`;
@@ -53,6 +56,98 @@ function applyImageFallback(img) {
         img.dataset.fallbackApplied = "1";
         img.src = IMAGE_PLACEHOLDER_URL;
     });
+}
+
+function normalizeAvatarUrl(url) {
+    if (typeof url !== "string" || !url.trim()) {
+        return null;
+    }
+
+    const hasQuery = url.includes("?");
+    return `${url}${hasQuery ? "&" : "?"}v=${Date.now()}`;
+}
+
+function isAllowedAvatarFile(file) {
+    if (!file) {
+        return false;
+    }
+
+    if (typeof file.type === "string" && AVATAR_ACCEPTED_TYPES.has(file.type.toLowerCase())) {
+        return true;
+    }
+
+    const fileName = String(file.name ?? "").toLowerCase();
+    return AVATAR_ACCEPTED_EXTENSIONS.some((extension) => fileName.endsWith(extension));
+}
+
+function renderAvatar(avatarElement, username, avatarUrl) {
+    const initial = (username?.[0] ?? "?").toUpperCase();
+    avatarElement.textContent = "";
+
+    const normalizedUrl = normalizeAvatarUrl(avatarUrl);
+    if (!normalizedUrl) {
+        avatarElement.textContent = initial;
+        return;
+    }
+
+    const img = document.createElement("img");
+    img.className = "profile-avatar-image";
+    img.src = normalizedUrl;
+    img.alt = `${username} avatar`;
+    img.loading = "lazy";
+    img.onerror = () => {
+        avatarElement.textContent = initial;
+    };
+    avatarElement.appendChild(img);
+}
+
+function showAvatarConfirmDialog(onConfirm) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "avatar-dialog-backdrop";
+
+    const dialog = document.createElement("div");
+    dialog.className = "avatar-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "avatar-dlg-title");
+    dialog.innerHTML = `
+        <p class="section-eyebrow" style="margin:0 0 0.35rem">Profile</p>
+        <h3 id="avatar-dlg-title" class="avatar-dialog-title">Change Avatar</h3>
+        <p class="avatar-dialog-body">Upload a new profile image. Accepted formats: JPEG, PNG, WebP or GIF. Max&nbsp;8&nbsp;MB.</p>
+        <div class="avatar-dialog-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="cancel">No</button>
+            <button type="button" class="btn btn-primary btn-sm" data-action="confirm">Yes, upload</button>
+        </div>`;
+
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+
+    requestAnimationFrame(() => backdrop.classList.add("is-visible"));
+
+    function close() {
+        document.removeEventListener("keydown", onKeyDown);
+        backdrop.classList.remove("is-visible");
+        setTimeout(() => backdrop.remove(), 250);
+    }
+
+    function onKeyDown(e) {
+        if (e.key === "Escape") close();
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+
+    backdrop.addEventListener("click", (e) => {
+        if (e.target === backdrop) close();
+    });
+
+    dialog.querySelector("[data-action='confirm']").addEventListener("click", () => {
+        close();
+        onConfirm();
+    });
+
+    dialog.querySelector("[data-action='cancel']").addEventListener("click", close);
+
+    dialog.querySelector("[data-action='confirm']").focus();
 }
 
 function getShowId(show) {
@@ -154,15 +249,77 @@ function wirePasswordPeekButtons(form) {
     });
 }
 
-function renderProfileView(profile, container, { enableOwnActions = true, watchlistEntries = [] } = {}) {
+function renderProfileView(profile, container, { enableOwnActions = true, watchlistEntries = [], onAvatarUpload = null } = {}) {
     container.innerHTML = "";
 
     const isOwn = enableOwnActions && Auth.isAuthenticated() && Auth.getUsername()?.toLowerCase() === profile.username?.toLowerCase();
 
     const header = document.createElement("div");
     header.className = "profile-header fade-in";
-    const initial = (profile.username?.[0] ?? "?").toUpperCase();
-    header.innerHTML = `<div class="profile-avatar">${initial}</div>`;
+
+    const avatarElement = document.createElement("div");
+    avatarElement.className = "profile-avatar";
+    renderAvatar(avatarElement, profile.username, profile.avatarUrl);
+
+    if (isOwn && typeof onAvatarUpload === "function") {
+        const avatarButton = document.createElement("button");
+        avatarButton.type = "button";
+        avatarButton.className = "profile-avatar-button";
+        avatarButton.title = "Click to change avatar";
+        avatarButton.setAttribute("aria-label", "Change avatar");
+
+        const avatarInput = document.createElement("input");
+        avatarInput.type = "file";
+        avatarInput.accept = ".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif";
+        avatarInput.className = "visually-hidden";
+
+        avatarButton.appendChild(avatarElement);
+        avatarButton.appendChild(avatarInput);
+
+        avatarButton.onclick = () => {
+            if (!avatarButton.disabled) {
+                showAvatarConfirmDialog(() => avatarInput.click());
+            }
+        };
+
+        avatarInput.onchange = async () => {
+            const [file] = avatarInput.files ?? [];
+            avatarInput.value = "";
+
+            if (!file) {
+                return;
+            }
+
+            if (file.size > MAX_AVATAR_SIZE_BYTES) {
+                showToast("Avatar image must be 8 MB or smaller.", "error");
+                return;
+            }
+
+            if (!isAllowedAvatarFile(file)) {
+                showToast("Avatar must be JPEG/JPG, PNG, WebP, or GIF.", "error");
+                return;
+            }
+
+            avatarButton.disabled = true;
+            avatarButton.classList.add("is-uploading");
+
+            try {
+                const response = await onAvatarUpload(file);
+                profile.avatarUrl = response?.avatarUrl ?? profile.avatarUrl;
+                renderAvatar(avatarElement, profile.username, profile.avatarUrl);
+                showToast("Avatar updated.", "success");
+            } catch (err) {
+                showToast(err.message || "Unable to update avatar right now.", "error");
+            } finally {
+                avatarButton.disabled = false;
+                avatarButton.classList.remove("is-uploading");
+            }
+        };
+
+        header.appendChild(avatarButton);
+    } else {
+        header.appendChild(avatarElement);
+    }
 
     const headerMeta = document.createElement("div");
     headerMeta.className = "profile-header-meta";
@@ -953,6 +1110,7 @@ export async function renderProfile() {
         renderProfileView(profile, profileView, {
             enableOwnActions: true,
             watchlistEntries,
+            onAvatarUpload: (file) => Api.updateAvatar(file),
         });
     } catch (err) {
         profileView.innerHTML = "";
@@ -974,9 +1132,12 @@ export async function renderShowDetails(params = {}) {
     setLoadingState(root, "Loading show details…");
 
     try {
-        const details = await Api.getShowDetails(showId);
+        const [details, latestComment] = await Promise.all([
+            Api.getShowDetails(showId),
+            Api.getLatestComment(showId).catch(() => null),
+        ]);
         root.innerHTML = "";
-        root.appendChild(buildShowDetailsPage(details));
+        root.appendChild(buildShowDetailsPage(details, latestComment));
     } catch (err) {
         root.innerHTML = "";
         if (err.status === 404) {
@@ -988,7 +1149,7 @@ export async function renderShowDetails(params = {}) {
     }
 }
 
-function buildShowDetailsPage(details) {
+function buildShowDetailsPage(details, latestComment) {
     const page = document.createElement("div");
     page.className = "show-detail-page fade-in";
 
@@ -1246,6 +1407,7 @@ function buildShowDetailsPage(details) {
         main: createMainTabPanel(details, {
             onViewEpisodes: () => activateTab("episodes"),
             onViewCast: () => activateTab("cast"),
+            latestComment,
         }),
         episodes: createEpisodesTabPanel(details),
         cast: createCastTabPanel(details),
@@ -1292,7 +1454,7 @@ function buildShowDetailsPage(details) {
     return page;
 }
 
-function createMainTabPanel(details, { onViewEpisodes, onViewCast }) {
+function createMainTabPanel(details, { onViewEpisodes, onViewCast, latestComment }) {
     const panel = document.createElement("div");
     panel.className = "show-tab-panel";
 
@@ -1323,6 +1485,7 @@ function createMainTabPanel(details, { onViewEpisodes, onViewCast }) {
     infoSection.appendChild(infoLayout);
 
     panel.appendChild(infoSection);
+    panel.appendChild(createCommentsSection(details, latestComment));
 
     const previousSection = document.createElement("section");
     previousSection.className = "show-section";
@@ -1376,6 +1539,408 @@ function createMainTabPanel(details, { onViewEpisodes, onViewCast }) {
 
     panel.appendChild(castSection);
     return panel;
+}
+
+function createCommentsSection(details, initialLatestComment) {
+    const section = document.createElement("section");
+    section.className = "show-section comments-section";
+
+    const header = document.createElement("div");
+    header.className = "show-section-header";
+    header.innerHTML = "<h2>Comments</h2>";
+
+    const viewCommentsBtn = document.createElement("button");
+    viewCommentsBtn.className = "btn btn-ghost btn-sm";
+    viewCommentsBtn.textContent = "View Comments";
+    header.appendChild(viewCommentsBtn);
+
+    section.appendChild(header);
+
+    const latestWrap = document.createElement("div");
+    latestWrap.className = "comments-latest-wrap";
+    section.appendChild(latestWrap);
+
+    let latestComment = initialLatestComment && typeof initialLatestComment === "object"
+        ? initialLatestComment
+        : null;
+
+    const refreshLatestFromApi = async () => {
+        latestComment = await Api.getLatestComment(details.tvMazeId).catch(() => null);
+        renderLatest();
+    };
+
+    const renderLatest = () => {
+        latestWrap.innerHTML = "";
+        if (!latestComment) {
+            const empty = document.createElement("p");
+            empty.className = "comments-empty-copy";
+            empty.textContent = "Add the first comment";
+            latestWrap.appendChild(empty);
+            return;
+        }
+
+        latestWrap.appendChild(createCommentListItem(details.tvMazeId, latestComment, {
+            onVoteUpdated: (updatedComment) => {
+                latestComment = updatedComment;
+                renderLatest();
+            },
+            onDeleted: async () => {
+                await refreshLatestFromApi();
+                showToast("Comment deleted.", "success");
+            },
+        }));
+    };
+
+    if (Auth.isAuthenticated()) {
+        const form = document.createElement("form");
+        form.className = "comment-form";
+
+        const input = document.createElement("textarea");
+        input.className = "input-field comment-input";
+        input.name = "comment";
+        input.maxLength = 240;
+        input.rows = 3;
+        input.placeholder = "Share your thoughts about this show (max 240 chars)";
+        input.required = true;
+
+        const footer = document.createElement("div");
+        footer.className = "comment-form-footer";
+
+        const counter = document.createElement("span");
+        counter.className = "comment-counter";
+        counter.textContent = "0/240";
+
+        const submitBtn = document.createElement("button");
+        submitBtn.className = "btn btn-primary btn-sm";
+        submitBtn.type = "submit";
+        submitBtn.textContent = "Add Comment";
+
+        footer.appendChild(counter);
+        footer.appendChild(submitBtn);
+        form.appendChild(input);
+        form.appendChild(footer);
+        section.appendChild(form);
+
+        input.addEventListener("input", () => {
+            const length = input.value.trim().length;
+            counter.textContent = `${length}/240`;
+        });
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const text = input.value.trim();
+            if (!text) {
+                showToast("Comment text is required.", "error");
+                return;
+            }
+
+            if (text.length > 240) {
+                showToast("Comments can be up to 240 characters.", "error");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            const originalLabel = submitBtn.textContent;
+            submitBtn.textContent = "Posting…";
+
+            try {
+                latestComment = await Api.addComment(details.tvMazeId, {
+                    text,
+                    showName: details.name,
+                    posterUrl: details.posterUrl || null,
+                    genresCsv: Array.isArray(details.genres) ? details.genres.join(", ") : null,
+                });
+
+                form.reset();
+                counter.textContent = "0/240";
+                renderLatest();
+                showToast("Comment added.", "success");
+            } catch (err) {
+                if (err?.status === 401) {
+                    navigate("home");
+                    return;
+                }
+
+                showToast(err.message || "Unable to add comment.", "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalLabel;
+            }
+        });
+    }
+
+    viewCommentsBtn.addEventListener("click", async () => {
+        try {
+            const payload = await Api.getShowComments(details.tvMazeId);
+            openCommentsDialog(details.tvMazeId, payload?.comments ?? [], {
+                onVoteUpdated: (updatedComment) => {
+                    if (latestComment && Number(updatedComment.id) === Number(latestComment.id)) {
+                        latestComment = updatedComment;
+                        renderLatest();
+                    }
+                },
+                onCommentDeleted: async () => {
+                    await refreshLatestFromApi();
+                },
+            });
+        } catch (err) {
+            showToast(err.message || "Unable to load comments.", "error");
+        }
+    });
+
+    renderLatest();
+    return section;
+}
+
+function createCommentListItem(showId, comment, { onVoteUpdated, onDeleted } = {}) {
+    const article = document.createElement("article");
+    article.className = "comment-item";
+
+    const head = document.createElement("div");
+    head.className = "comment-item-head";
+
+    const identity = document.createElement("div");
+    identity.className = "comment-identity";
+
+    if (comment.avatarUrl) {
+        const avatar = document.createElement("img");
+        avatar.className = "comment-avatar";
+        avatar.src = comment.avatarUrl;
+        avatar.alt = `${comment.username || "Unknown"} avatar`;
+        avatar.loading = "lazy";
+        applyImageFallback(avatar);
+        identity.appendChild(avatar);
+    } else {
+        const avatarFallback = document.createElement("span");
+        avatarFallback.className = "comment-avatar-fallback";
+        avatarFallback.textContent = String(comment.username || "?").charAt(0).toUpperCase();
+        identity.appendChild(avatarFallback);
+    }
+
+    const username = document.createElement("span");
+    username.className = "comment-user";
+    username.textContent = comment.username || "Unknown";
+    identity.appendChild(username);
+
+    const date = document.createElement("span");
+    date.className = "comment-date";
+    date.textContent = formatCommentDate(comment.createdAtUtc);
+
+    head.appendChild(identity);
+    head.appendChild(date);
+
+    const body = document.createElement("p");
+    body.className = "comment-text";
+    body.textContent = comment.text || "";
+
+    const actions = document.createElement("div");
+    actions.className = "comment-actions";
+
+    const upvoteBtn = document.createElement("button");
+    upvoteBtn.type = "button";
+    upvoteBtn.className = "btn btn-ghost btn-sm comment-vote-btn comment-vote-up";
+    upvoteBtn.textContent = `▲ ${Number(comment.upvoteCount) || 0}`;
+
+    const downvoteBtn = document.createElement("button");
+    downvoteBtn.type = "button";
+    downvoteBtn.className = "btn btn-ghost btn-sm comment-vote-btn comment-vote-down";
+    downvoteBtn.textContent = `▼ ${Number(comment.downvoteCount) || 0}`;
+
+    if (comment.currentUserVote === "upvote") {
+        upvoteBtn.classList.add("is-active-up");
+    }
+    if (comment.currentUserVote === "downvote") {
+        downvoteBtn.classList.add("is-active-down");
+    }
+
+    const canVote = Auth.isAuthenticated() && Boolean(comment.canVote);
+    upvoteBtn.disabled = !canVote;
+    downvoteBtn.disabled = !canVote;
+    let deleteBtn = null;
+
+    const setBusy = (busy) => {
+        upvoteBtn.disabled = busy || !canVote;
+        downvoteBtn.disabled = busy || !canVote;
+        if (deleteBtn) {
+            deleteBtn.disabled = busy;
+        }
+    };
+
+    const applyUpdate = (updatedComment) => {
+        if (typeof onVoteUpdated === "function") {
+            onVoteUpdated(updatedComment);
+        }
+    };
+
+    const onVote = async (isUpvote) => {
+        if (!canVote) {
+            return;
+        }
+
+        const clickedButton = isUpvote ? upvoteBtn : downvoteBtn;
+        clickedButton.classList.add("is-pressed");
+        window.setTimeout(() => clickedButton.classList.remove("is-pressed"), 280);
+
+        setBusy(true);
+        try {
+            const isSameVote = (isUpvote && comment.currentUserVote === "upvote")
+                || (!isUpvote && comment.currentUserVote === "downvote");
+
+            const updated = isSameVote
+                ? await Api.removeCommentVote(showId, comment.id)
+                : await Api.voteComment(showId, comment.id, isUpvote);
+
+            applyUpdate(updated);
+        } catch (err) {
+            if (err?.status === 401) {
+                navigate("home");
+                return;
+            }
+
+            showToast(err.message || "Unable to update vote.", "error");
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    upvoteBtn.onclick = () => void onVote(true);
+    downvoteBtn.onclick = () => void onVote(false);
+
+    actions.appendChild(upvoteBtn);
+    actions.appendChild(downvoteBtn);
+
+    if (Auth.isAuthenticated() && Boolean(comment.isOwnedByCurrentUser)) {
+        deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "btn btn-danger btn-sm comment-delete-btn";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.onclick = async () => {
+            setBusy(true);
+            try {
+                await Api.deleteComment(showId, comment.id);
+                if (typeof onDeleted === "function") {
+                    await onDeleted(comment.id);
+                }
+            } catch (err) {
+                if (err?.status === 401) {
+                    navigate("home");
+                    return;
+                }
+
+                showToast(err.message || "Unable to delete comment.", "error");
+            } finally {
+                setBusy(false);
+            }
+        };
+
+        actions.appendChild(deleteBtn);
+    }
+
+    article.appendChild(head);
+    article.appendChild(body);
+    article.appendChild(actions);
+
+    return article;
+}
+
+function openCommentsDialog(showId, comments, { onVoteUpdated, onCommentDeleted } = {}) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "avatar-dialog-backdrop";
+
+    const dialog = document.createElement("div");
+    dialog.className = "avatar-dialog comments-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.innerHTML = `
+        <p class="section-eyebrow" style="margin:0 0 0.35rem">Show</p>
+        <h3 class="avatar-dialog-title">All Comments</h3>
+        <div class="comments-dialog-list" data-role="list"></div>
+        <div class="avatar-dialog-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="close">Close</button>
+        </div>`;
+
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+
+    const list = dialog.querySelector("[data-role='list']");
+    let renderedComments = Array.isArray(comments) ? [...comments] : [];
+
+    const renderList = () => {
+        list.innerHTML = "";
+
+        if (!renderedComments.length) {
+            list.appendChild(emptyState("💬", "No comments yet."));
+            return;
+        }
+
+        renderedComments.forEach((comment) => {
+            const row = createCommentListItem(showId, comment, {
+                onVoteUpdated: (updatedComment) => {
+                    const targetIndex = renderedComments.findIndex((entry) => Number(entry.id) === Number(updatedComment.id));
+                    if (targetIndex >= 0) {
+                        renderedComments[targetIndex] = updatedComment;
+                    }
+                    renderList();
+                    if (typeof onVoteUpdated === "function") {
+                        onVoteUpdated(updatedComment);
+                    }
+                },
+                onDeleted: async (deletedId) => {
+                    renderedComments = renderedComments.filter((entry) => Number(entry.id) !== Number(deletedId));
+                    renderList();
+                    if (typeof onCommentDeleted === "function") {
+                        await onCommentDeleted(deletedId);
+                    }
+                    showToast("Comment deleted.", "success");
+                },
+            });
+
+            list.appendChild(row);
+        });
+    };
+
+    const close = () => {
+        document.removeEventListener("keydown", onKeyDown);
+        backdrop.classList.remove("is-visible");
+        setTimeout(() => backdrop.remove(), 200);
+    };
+
+    const onKeyDown = (event) => {
+        if (event.key === "Escape") {
+            close();
+        }
+    };
+
+    renderList();
+    document.addEventListener("keydown", onKeyDown);
+    backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) {
+            close();
+        }
+    });
+    dialog.querySelector("[data-action='close']")?.addEventListener("click", close);
+
+    requestAnimationFrame(() => backdrop.classList.add("is-visible"));
+}
+
+function formatCommentDate(value) {
+    if (!value) {
+        return "Unknown date";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "Unknown date";
+    }
+
+    return date.toLocaleString("en-GB", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 function createEpisodesTabPanel(details) {

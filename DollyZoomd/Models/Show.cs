@@ -13,4 +13,5 @@ public class Show
 
     public ICollection<WatchlistEntry> WatchlistEntries { get; set; } = new List<WatchlistEntry>();
     public ICollection<UserFavorite> FavoritedBy { get; set; } = new List<UserFavorite>();
+    public ICollection<Comment> Comments { get; set; } = new List<Comment>();
 }

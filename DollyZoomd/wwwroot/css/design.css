@@ -835,7 +835,91 @@ select.input-field {
     font-weight: 700;
     color: var(--accent);
     flex-shrink: 0;
+    overflow: hidden;
 }
+.profile-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.profile-avatar-button {
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 50%;
+}
+.profile-avatar-button:hover .profile-avatar,
+.profile-avatar-button:focus-visible .profile-avatar {
+    border-color: rgba(0, 192, 48, 0.62);
+    box-shadow: 0 0 0 3px rgba(0, 192, 48, 0.16);
+}
+.profile-avatar-button.is-uploading {
+    opacity: 0.7;
+    cursor: wait;
+}
+.profile-avatar-button:disabled {
+    cursor: wait;
+}
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* ── Avatar Confirmation Dialog ── */
+.avatar-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: background 0.2s ease;
+}
+.avatar-dialog-backdrop.is-visible {
+    background: rgba(0, 0, 0, 0.52);
+}
+.avatar-dialog {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.75rem;
+    max-width: 340px;
+    width: calc(100vw - 2rem);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.avatar-dialog-backdrop.is-visible .avatar-dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+.avatar-dialog-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 0.6rem;
+}
+.avatar-dialog-body {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    margin: 0 0 1.35rem;
+    line-height: 1.55;
+}
+.avatar-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
 .profile-name { font-size: 1.25rem; font-weight: 700; }
 .profile-since { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
 
@@ -1320,6 +1404,177 @@ select.input-field {
 .show-summary a {
     color: var(--accent);
     text-decoration: underline;
+}
+
+.comments-section {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.comments-latest-wrap {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.comments-empty-copy {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.comment-form {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.comment-input {
+    resize: vertical;
+    min-height: 84px;
+}
+
+.comment-form-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.comment-counter {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+}
+
+.comment-item {
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    border-radius: var(--radius-xs);
+    padding: 0.65rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.comment-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.comment-identity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.comment-avatar,
+.comment-avatar-fallback {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.comment-avatar {
+    object-fit: cover;
+    border: 1px solid var(--border-light);
+    background: var(--surface);
+}
+
+.comment-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-glow);
+    border: 1px solid rgba(0, 192, 48, 0.22);
+}
+
+.comment-user {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.comment-date {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.comment-text {
+    font-size: 0.86rem;
+    color: var(--text);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.comment-vote-btn {
+    min-width: 68px;
+    font-size: 0.75rem;
+    padding-inline: 0.55rem;
+    transition: background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.comment-vote-up {
+    border-color: rgba(0, 192, 48, 0.25);
+    background: rgba(0, 192, 48, 0.06);
+}
+
+.comment-vote-down {
+    border-color: rgba(224, 82, 82, 0.25);
+    background: rgba(224, 82, 82, 0.06);
+}
+
+.comment-vote-up.is-active-up {
+    border-color: rgba(0, 192, 48, 0.5);
+    color: #66ea8a;
+    background: rgba(0, 192, 48, 0.15);
+}
+
+.comment-vote-down.is-active-down {
+    border-color: rgba(224, 82, 82, 0.5);
+    color: #ff9b9b;
+    background: rgba(224, 82, 82, 0.15);
+}
+
+.comment-vote-btn.is-pressed {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06) inset;
+}
+
+.comment-vote-up.is-pressed {
+    box-shadow: 0 0 0 2px rgba(0, 192, 48, 0.24);
+}
+
+.comment-vote-down.is-pressed {
+    box-shadow: 0 0 0 2px rgba(224, 82, 82, 0.24);
+}
+
+.comment-delete-btn {
+    margin-left: auto;
+}
+
+.comments-dialog {
+    max-width: min(700px, calc(100vw - 2rem));
+    width: min(700px, calc(100vw - 2rem));
+}
+
+.comments-dialog-list {
+    max-height: min(60vh, 560px);
+    overflow-y: auto;
+    display: grid;
+    gap: 0.55rem;
+    padding-right: 0.15rem;
+    margin-bottom: 1rem;
 }
 
 .previous-episodes-list {

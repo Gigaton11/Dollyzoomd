@@ -19,6 +19,22 @@ public class ProfileRepository(AppDbContext dbContext) : IProfileRepository
             .FirstOrDefaultAsync(u => u.Username.ToUpper() == normalizedUsernameUpper, cancellationToken);
     }
 
+    public Task<User?> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+    }
+
+    public async Task UpdateAvatarFileNameAsync(Guid userId, string? avatarFileName, CancellationToken cancellationToken = default)
+    {
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new KeyNotFoundException("User was not found.");
+
+        user.AvatarFileName = avatarFileName;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<WatchlistSummaryDto> GetWatchlistSummaryAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var statuses = await dbContext.WatchlistEntries
