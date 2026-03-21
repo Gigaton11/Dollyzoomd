@@ -169,35 +169,30 @@ export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove, 
                 sel.appendChild(opt);
             });
 
-            const updateBtn = document.createElement("button");
-            updateBtn.className = "btn btn-ghost btn-sm";
-            updateBtn.textContent = "Update";
-            updateBtn.onclick = () => onStatusChange(entry.showId, Number(sel.value));
+            sel.onchange = () => onStatusChange(entry.showId, Number(sel.value));
 
             controls.appendChild(sel);
-            controls.appendChild(updateBtn);
         }
 
         if (onRate) {
-            const rateInput = document.createElement("input");
-            rateInput.type = "number";
-            rateInput.min = "1";
-            rateInput.max = "10";
-            rateInput.step = "1";
-            rateInput.placeholder = "1-10";
-            rateInput.className = "input-field";
-            rateInput.style.cssText = "font-size:0.78rem;padding:0.28rem 0.5rem;";
-            if (entry.rating != null) rateInput.value = entry.rating;
-
             const rateBtn = document.createElement("button");
             rateBtn.className = "btn btn-ghost btn-sm";
-            rateBtn.textContent = "Rate";
+            rateBtn.textContent = entry.rating == null ? "Rate" : String(entry.rating);
             rateBtn.onclick = () => {
-                const val = Number(rateInput.value);
-                if (val >= 1 && val <= 10) onRate(entry.showId, val);
+                const promptDefault = entry.rating == null ? "" : String(entry.rating);
+                const value = window.prompt("Rate this show (1-10)", promptDefault);
+                if (value == null) {
+                    return;
+                }
+
+                const parsed = Number(value);
+                if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10) {
+                    return;
+                }
+
+                onRate(entry.showId, parsed);
             };
 
-            controls.appendChild(rateInput);
             controls.appendChild(rateBtn);
         }
 

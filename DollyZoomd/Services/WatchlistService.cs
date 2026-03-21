@@ -38,16 +38,14 @@ public class WatchlistService(IWatchlistRepository watchlistRepository) : IWatch
     public async Task UpdateStatusAsync(Guid userId, int showId, UpdateWatchStatusRequest request, CancellationToken cancellationToken = default)
     {
         var entry = await GetEntryOrThrowAsync(userId, showId, cancellationToken);
-        entry.Status       = request.Status;
-        entry.UpdatedAtUtc = DateTime.UtcNow;
+        entry.Status = request.Status;
         await watchlistRepository.UpdateAsync(entry, cancellationToken);
     }
 
     public async Task RateShowAsync(Guid userId, int showId, RateShowRequest request, CancellationToken cancellationToken = default)
     {
         var entry = await GetEntryOrThrowAsync(userId, showId, cancellationToken);
-        entry.Rating       = request.Rating;
-        entry.UpdatedAtUtc = DateTime.UtcNow;
+        entry.Rating = request.Rating;
         await watchlistRepository.UpdateAsync(entry, cancellationToken);
     }
 

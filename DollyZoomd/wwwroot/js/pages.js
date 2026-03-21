@@ -353,7 +353,7 @@ function renderProfileView(profile, container, { enableOwnActions = true, watchl
     if (profile.favorites?.length) {
         const favSection = document.createElement("div");
         const eyebrowDiv = document.createElement("div");
-        eyebrowDiv.innerHTML = `<p class="section-eyebrow">Favourite</p><h3>Tv Series</h3>`;
+        eyebrowDiv.innerHTML = `<p class="section-eyebrow">Favorite</p><h3>TV Series</h3>`;
         eyebrowDiv.style.marginBottom = "1rem";
         favSection.appendChild(eyebrowDiv);
 
@@ -447,12 +447,12 @@ export function renderHome() {
 
     const popularMount = document.createElement("section");
     popularMount.className = "carousel-section";
-    popularMount.appendChild(emptyState("⏳", "Loading Popular Right Now…"));
+    popularMount.appendChild(emptyState("⏳", "Loading Popular Now…"));
     page.appendChild(popularMount);
 
     const allTimeMount = document.createElement("section");
     allTimeMount.className = "carousel-section";
-    allTimeMount.appendChild(emptyState("⏳", "Loading All-Time Greats…"));
+    allTimeMount.appendChild(emptyState("⏳", "Loading Critically Acclaimed…"));
     page.appendChild(allTimeMount);
 
     root.appendChild(page);
@@ -461,8 +461,8 @@ export function renderHome() {
         ? { onAddWatchlist: handleHomeAddWatchlist, onAddFavorite: handleHomeAddFavorite, onOpenShow: openShowDetails }
         : { onOpenShow: openShowDetails };
 
-    void loadDiscoverSection(popularMount, "Popular Right Now", () => Api.getDiscoverPopular(20, 0), cardActions);
-    void loadDiscoverSection(allTimeMount, "All-Time Greats", () => Api.getDiscoverAllTimeGreats(20, 0), cardActions);
+    void loadDiscoverSection(popularMount, "Popular Now", () => Api.getDiscoverPopular(20, 0), cardActions);
+    void loadDiscoverSection(allTimeMount, "Critically Acclaimed", () => Api.getDiscoverAllTimeGreats(20, 0), cardActions);
 }
 
 export function renderLogin() {
@@ -506,7 +506,7 @@ function buildAuthHero({ isAuthenticated = false, username = "" } = {}) {
         heading.append(document.createTextNode("."));
 
         const copy = document.createElement("p");
-        copy.textContent = "Jump back update your Watchlist and keep your TV story moving.";
+        copy.textContent = "All this from a slice of gabagool?";
 
         hero.appendChild(eyebrow);
         hero.appendChild(heading);
