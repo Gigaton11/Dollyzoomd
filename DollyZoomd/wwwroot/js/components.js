@@ -68,62 +68,6 @@ export function createShowCard(show, { onAddWatchlist, onAddFavorite, onOpenShow
 
     article.appendChild(wrap);
 
-    /* body */
-    const body = document.createElement("div");
-    body.className = "card-body";
-
-    const title = document.createElement("div");
-    title.className = "card-title";
-    title.textContent = show.name;
-    body.appendChild(title);
-
-    if (show.premieredOn) {
-        const meta = document.createElement("div");
-        meta.className = "card-meta";
-        meta.textContent = new Date(show.premieredOn).getFullYear();
-        body.appendChild(meta);
-    }
-
-    if (show.genres?.length) {
-        const row = document.createElement("div");
-        row.className = "tag-row";
-        show.genres.slice(0, 3).forEach(g => {
-            const t = document.createElement("span");
-            t.className = "tag";
-            t.textContent = g;
-            row.appendChild(t);
-        });
-        body.appendChild(row);
-    }
-
-    /* actions */
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:auto;padding-top:0.35rem;";
-
-    if (onAddWatchlist) {
-        const btn = document.createElement("button");
-        btn.className = "btn btn-ghost btn-sm";
-        btn.textContent = "+ Watchlist";
-        btn.onclick = (event) => {
-            event.stopPropagation();
-            onAddWatchlist(show);
-        };
-        actions.appendChild(btn);
-    }
-
-    if (onAddFavorite) {
-        const btn = document.createElement("button");
-        btn.className = "btn btn-ghost btn-sm";
-        btn.textContent = "★ Fav";
-        btn.onclick = (event) => {
-            event.stopPropagation();
-            onAddFavorite(show);
-        };
-        actions.appendChild(btn);
-    }
-
-    if (actions.children.length) body.appendChild(actions);
-    article.appendChild(body);
     return article;
 }
 
@@ -180,10 +124,13 @@ export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove, 
     const body = document.createElement("div");
     body.className = "wl-body";
 
+    const heading = document.createElement("div");
+    heading.className = "wl-heading";
+
     const title = document.createElement("div");
     title.className = "wl-title";
     title.textContent = entry.showName;
-    body.appendChild(title);
+    heading.appendChild(title);
 
     /* badges row */
     const badges = document.createElement("div");
@@ -197,19 +144,9 @@ export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove, 
         rb.textContent = `★ ${entry.rating}`;
         badges.appendChild(rb);
     }
-    body.appendChild(badges);
 
-    if (entry.genres?.length) {
-        const row = document.createElement("div");
-        row.className = "tag-row";
-        entry.genres.slice(0, 3).forEach(g => {
-            const t = document.createElement("span");
-            t.className = "tag";
-            t.textContent = g;
-            row.appendChild(t);
-        });
-        body.appendChild(row);
-    }
+    heading.appendChild(badges);
+    body.appendChild(heading);
 
     /* controls */
     const hasControls = typeof onStatusChange === "function"

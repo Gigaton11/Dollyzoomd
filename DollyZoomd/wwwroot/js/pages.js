@@ -1,7 +1,7 @@
 import * as Api    from "./api.js?v=20260320d";
 import * as Auth   from "./auth.js?v=20260320d";
 import { showToast }  from "./toast.js?v=20260320d";
-import { createShowCard, createWatchlistEntry, createFavoriteCard } from "./components.js?v=20260320d";
+import { createShowCard, createWatchlistEntry } from "./components.js?v=20260320d";
 import { navigate } from "./router.js?v=20260320d";
 import * as Carousel from "./carousel.js?v=20260320d";
 
@@ -175,15 +175,6 @@ function renderProfileView(profile, container, { enableOwnActions = true, watchl
     profileName.textContent = `@${profile.username}`;
     nameRow.appendChild(profileName);
 
-    if (isOwn) {
-        const watchlistBtn = document.createElement("button");
-        watchlistBtn.type = "button";
-        watchlistBtn.className = "btn btn-ghost btn-sm profile-watchlist-btn";
-        watchlistBtn.textContent = "Watchlist";
-        watchlistBtn.onclick = () => navigate("diary", { force: true });
-        nameRow.appendChild(watchlistBtn);
-    }
-
     const profileSince = document.createElement("div");
     profileSince.className = "profile-since";
     profileSince.textContent = `Member since ${new Date(profile.memberSinceUtc).toLocaleDateString("en-GB", { year: "numeric", month: "long" })}`;
@@ -212,29 +203,14 @@ function renderProfileView(profile, container, { enableOwnActions = true, watchl
         const favGrid = document.createElement("div");
         favGrid.className = "favorites-grid";
 
-        profile.favorites.forEach(fav => {
-            const card = createFavoriteCard(fav, {
-                onOpenShow: () => openShowDetails({
-                    showId: fav.showId,
-                    name: fav.showName,
-                }),
-                readonly: !isOwn,
-                onRemove: isOwn ? async (showId) => {
-                    try {
-                        await Api.removeFavorite(showId);
-                        showToast("Removed from favorites.", "success");
-                        const [updatedProfile, updatedWatchlist] = await Promise.all([
-                            Api.getProfile(profile.username),
-                            Api.getWatchlist(),
-                        ]);
-                        renderProfileView(updatedProfile, container, {
-                            enableOwnActions: true,
-                            watchlistEntries: Array.isArray(updatedWatchlist) ? updatedWatchlist : [],
-                        });
-                    } catch (err) {
-                        showToast(err.message, "error");
-                    }
-                } : undefined,
+        profile.favorites.forEach((fav) => {
+            const card = createShowCard({
+                showId: fav.showId,
+                name: fav.showName,
+                posterUrl: fav.posterUrl,
+                genres: fav.genres,
+            }, {
+                onOpenShow: openShowDetails,
             });
             favGrid.appendChild(card);
         });
@@ -257,7 +233,10 @@ function renderProfileView(profile, container, { enableOwnActions = true, watchl
 
         const watchlistHeading = document.createElement("div");
         watchlistHeading.className = "profile-watchlist-heading";
-        watchlistHeading.innerHTML = `<p class="section-eyebrow">Watchlist</p><h3>TV Series</h3>`;
+
+        const watchlistHeadingCopy = document.createElement("div");
+        watchlistHeadingCopy.innerHTML = `<p class="section-eyebrow">Watchlist</p><h3>TV Series</h3>`;
+        watchlistHeading.appendChild(watchlistHeadingCopy);
 
         const viewWatchlistBtn = document.createElement("button");
         viewWatchlistBtn.type = "button";
@@ -279,12 +258,15 @@ function renderProfileView(profile, container, { enableOwnActions = true, watchl
             watchlistGrid.className = "profile-watchlist-grid";
 
             sortedEntries.slice(0, 6).forEach((entry) => {
-                watchlistGrid.appendChild(createWatchlistEntry(entry, {
-                    onOpenShow: () => openShowDetails({
-                        showId: entry.showId,
-                        name: entry.showName,
-                    }),
-                }));
+                const card = createShowCard({
+                    showId: entry.showId,
+                    name: entry.showName,
+                    posterUrl: entry.posterUrl,
+                    genres: entry.genres,
+                }, {
+                    onOpenShow: openShowDetails,
+                });
+                watchlistGrid.appendChild(card);
             });
 
             watchlistSection.appendChild(watchlistGrid);
@@ -1078,10 +1060,116 @@ function buildShowDetailsPage(details) {
     eyebrow.textContent = "TV Series";
     meta.appendChild(eyebrow);
 
+    const titleRow = document.createElement("div");
+    titleRow.style.cssText = "display:flex;gap:0.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap;";
+
     const title = document.createElement("h1");
     title.className = "show-hero-title";
     title.textContent = details.name || "Untitled Show";
-    meta.appendChild(title);
+    titleRow.appendChild(title);
+
+    if (Auth.isAuthenticated()) {
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex;gap:0.5rem;flex-wrap:wrap;";
+
+        const showMutationRequest = {
+            tvMazeShowId: details.tvMazeId,
+            showName: details.name,
+            posterUrl: details.posterUrl || null,
+            genresCsv: Array.isArray(details.genres) ? details.genres.filter(g => typeof g === "string").join(", ") : null,
+        };
+
+        async function handleAddWatchlist() {
+            try {
+                await Api.addToWatchlist(showMutationRequest);
+                showToast(`Added "${details.name}" to your Watchlist list.`, "success");
+            } catch (err) {
+                showToast(err.message, "error");
+            }
+        }
+
+        let favoriteShowId = null;
+        let isFavorite = false;
+        let favoriteBusy = false;
+
+        const favBtn = document.createElement("button");
+        favBtn.className = "btn btn-ghost btn-sm fav-toggle-btn";
+
+        const renderFavoriteButton = () => {
+            favBtn.textContent = isFavorite ? "★ Remove Fav" : "★ Add Fav";
+            favBtn.classList.toggle("is-favorite", isFavorite);
+            favBtn.disabled = favoriteBusy;
+        };
+
+        async function syncFavoriteState() {
+            favoriteBusy = true;
+            renderFavoriteButton();
+
+            try {
+                const favorites = await Api.getFavorites();
+                const match = Array.isArray(favorites)
+                    ? favorites.find((fav) => Number(fav.showId) === Number(details.tvMazeId))
+                    : null;
+
+                favoriteShowId = match?.showId ?? null;
+                isFavorite = Boolean(match);
+            } catch (err) {
+                showToast(err.message, "error");
+            } finally {
+                favoriteBusy = false;
+                renderFavoriteButton();
+            }
+        }
+
+        const watchlistBtn = document.createElement("button");
+        watchlistBtn.className = "btn btn-ghost btn-sm";
+        watchlistBtn.textContent = "+ Watchlist";
+        watchlistBtn.onclick = handleAddWatchlist;
+        actions.appendChild(watchlistBtn);
+
+        favBtn.onclick = async () => {
+            if (favoriteBusy) {
+                return;
+            }
+
+            favoriteBusy = true;
+            renderFavoriteButton();
+
+            try {
+                if (isFavorite) {
+                    const showIdToRemove = favoriteShowId ?? details.tvMazeId;
+                    await Api.removeFavorite(showIdToRemove);
+                    isFavorite = false;
+                    favoriteShowId = null;
+                    favBtn.classList.add("fav-toggle-remove");
+                    showToast(`Removed "${details.name}" from favorites.`, "success");
+                } else {
+                    await Api.addFavorite(showMutationRequest);
+                    isFavorite = true;
+                    favoriteShowId = details.tvMazeId;
+                    favBtn.classList.add("fav-toggle-add");
+                    showToast(`Added "${details.name}" to favorites.`, "success");
+                }
+
+                window.setTimeout(() => {
+                    favBtn.classList.remove("fav-toggle-add", "fav-toggle-remove");
+                }, 900);
+            } catch (err) {
+                showToast(err.message, "error");
+            } finally {
+                favoriteBusy = false;
+                renderFavoriteButton();
+            }
+        };
+        actions.appendChild(favBtn);
+
+        renderFavoriteButton();
+        void syncFavoriteState();
+
+        titleRow.appendChild(actions);
+    }
+
+    meta.appendChild(titleRow);
 
     const genreRow = document.createElement("div");
     genreRow.className = "show-hero-tags";

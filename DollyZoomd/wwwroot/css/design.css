@@ -462,7 +462,16 @@ select.input-field {
     flex: 1;
 }
 
+.wl-heading {
+    display: flex;
+    gap: 0.45rem;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
 .wl-title {
+    flex: 1;
+    min-width: 0;
     font-size: 0.875rem;
     font-weight: 600;
     line-height: 1.3;
@@ -479,6 +488,8 @@ select.input-field {
     flex-wrap: wrap;
     align-items: center;
     min-height: 1.5rem;
+    justify-content: flex-end;
+    flex-shrink: 0;
 }
 
 .wl-controls {
@@ -498,6 +509,13 @@ select.input-field {
     width: 100% !important;
 }
 
+.wl-controls .btn-danger {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: auto;
+    min-width: 132px;
+}
+
 /* ── Favorites Grid ── */
 .favorites-grid {
     display: flex;
@@ -511,7 +529,16 @@ select.input-field {
 }
 
 .profile-watchlist-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     margin-bottom: 1rem;
+}
+
+.profile-watchlist-heading .section-eyebrow {
+    margin-bottom: 0.2rem;
 }
 
 .profile-watchlist-grid {
@@ -522,13 +549,15 @@ select.input-field {
 }
 
 .favorites-grid > .card,
-.profile-watchlist-grid > .wl-entry {
+.profile-watchlist-grid > .wl-entry,
+.profile-watchlist-grid > .card {
     flex: 0 0 var(--carousel-card-w);
     min-width: var(--carousel-card-w);
     max-width: var(--carousel-card-w);
 }
 
-.profile-watchlist-grid .wl-entry {
+.profile-watchlist-grid .wl-entry,
+.profile-watchlist-grid .card {
     width: var(--carousel-card-w);
     min-width: var(--carousel-card-w);
     max-width: var(--carousel-card-w);
@@ -570,9 +599,34 @@ select.input-field {
 /* ── Stack list (diary cards) ── */
 .stack-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--carousel-card-w), var(--carousel-card-w)));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 1rem;
-    justify-content: start;
+}
+
+.stack-list > .wl-entry {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+}
+
+.fav-toggle-btn {
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.fav-toggle-btn.is-favorite {
+    border-color: rgba(224, 82, 82, 0.45);
+}
+
+.fav-toggle-btn.fav-toggle-add {
+    background: rgba(0, 192, 48, 0.16);
+    border-color: rgba(0, 192, 48, 0.45);
+    box-shadow: 0 0 0 2px rgba(0, 192, 48, 0.16);
+}
+
+.fav-toggle-btn.fav-toggle-remove {
+    background: rgba(224, 82, 82, 0.14);
+    border-color: rgba(224, 82, 82, 0.45);
+    box-shadow: 0 0 0 2px rgba(224, 82, 82, 0.14);
 }
 
 /* ── Home / Auth page ── */
@@ -1413,12 +1467,14 @@ select.input-field {
 /* ── Responsive ── */
 @media (max-width: 1024px) {
     .favorites-grid > .card,
-    .profile-watchlist-grid > .wl-entry {
+    .profile-watchlist-grid > .wl-entry,
+    .profile-watchlist-grid > .card {
         flex-basis: calc((100% - (var(--carousel-gap) * 3)) / 4);
         min-width: 144px;
         max-width: none;
     }
-    .profile-watchlist-grid .wl-entry {
+    .profile-watchlist-grid .wl-entry,
+    .profile-watchlist-grid .card {
         width: 100%;
         min-width: 0;
         max-width: none;
@@ -1438,12 +1494,14 @@ select.input-field {
     .home-page .auth-hero { display: block; }
     .auth-hero-returning { width: 100%; }
     .favorites-grid > .card,
-    .profile-watchlist-grid > .wl-entry {
+    .profile-watchlist-grid > .wl-entry,
+    .profile-watchlist-grid > .card {
         flex-basis: calc((100% - (var(--carousel-gap) * 2)) / 3);
         min-width: 136px;
         max-width: none;
     }
-    .profile-watchlist-grid .wl-entry {
+    .profile-watchlist-grid .wl-entry,
+    .profile-watchlist-grid .card {
         width: 100%;
         min-width: 0;
         max-width: none;
@@ -1482,16 +1540,19 @@ select.input-field {
     .user-chip { max-width: 120px; }
     .show-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 128px)); gap: 0.75rem; justify-content: start; }
     .favorites-grid { gap: var(--carousel-gap); }
-    .stack-list { grid-template-columns: repeat(auto-fill, minmax(128px, 128px)); gap: 0.75rem; }
+    .stack-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
     .profile-watchlist-grid { gap: var(--carousel-gap); }
     .favorites-grid > .card,
-    .profile-watchlist-grid > .wl-entry {
+    .profile-watchlist-grid > .wl-entry,
+    .profile-watchlist-grid > .card {
         flex-basis: calc((100% - var(--carousel-gap)) / 2);
         min-width: 124px;
         max-width: none;
     }
-    .profile-watchlist-grid .wl-entry { width: 100%; min-width: 0; max-width: none; }
+    .profile-watchlist-grid .wl-entry,
+    .profile-watchlist-grid .card { width: 100%; min-width: 0; max-width: none; }
     .wl-entry { width: 128px; min-width: 128px; max-width: 128px; }
+    .stack-list > .wl-entry { width: auto; min-width: 0; max-width: none; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .section-header { flex-direction: column; align-items: flex-start; }
     .wl-controls { gap: 0.25rem; }
