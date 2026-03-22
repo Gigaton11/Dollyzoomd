@@ -1,4 +1,4 @@
-# Dollyzoomd
+# Dollyzoomd 🎥
 
 Dollyzoomd is a cloud-ready TV discovery and tracking backend built with ASP.NET Core and PostgreSQL.
 It powers a web experience for discovering popular shows, tracking watch status, managing favorites, and sharing comments.
@@ -14,6 +14,25 @@ Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 - JWT authentication
 - Google Cloud Run + Cloud SQL + Cloud Storage
 - Scalar OpenAPI UI
+
+## Cloud Architecture
+
+- Cloud Run hosts and auto-scales the ASP.NET API container. It handles incoming traffic and scales to zero when idle.
+- Cloud SQL (PostgreSQL) is the system of record for users, watchlists, favorites, comments, and cached discover data.
+- Cloud Storage is used for avatar image objects, so media files are decoupled from the API container filesystem.
+
+Request flow:
+
+1. A client calls the API endpoint on Cloud Run.
+2. Cloud Run executes business logic and reads/writes relational data in Cloud SQL.
+3. If the operation includes avatar media, the API uploads to or reads from Cloud Storage and stores the file reference in Cloud SQL.
+4. The API returns a response that combines structured database data with media URLs when needed.
+
+Why this split:
+
+- Compute, database, and object storage scale independently.
+- Stateless containers remain replaceable and safe for autoscaling.
+- PostgreSQL handles transactional consistency, while Cloud Storage handles durable binary assets efficiently.
 
 ## Local Installation
 
