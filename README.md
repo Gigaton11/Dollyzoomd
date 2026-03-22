@@ -1,6 +1,6 @@
-# DollyZoomd
+# Dollyzoomd
 
-DollyZoomd is a cloud-ready TV discovery and tracking backend built with ASP.NET Core and PostgreSQL.
+Dollyzoomd is a cloud-ready TV discovery and tracking backend built with ASP.NET Core and PostgreSQL.
 It powers a web experience for discovering popular shows, tracking watch status, managing favorites, and sharing comments.
 
 ## Live Demo
@@ -15,7 +15,7 @@ Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 - Google Cloud Run + Cloud SQL + Cloud Storage
 - Scalar OpenAPI UI
 
-## Installation
+## Local Installation
 
 ### 1. Prerequisites
 
@@ -26,7 +26,7 @@ Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 ### 2. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/Gigaton11/Dollyzoomd.git>
 cd DollyZoomd
 ```
 
@@ -114,7 +114,3 @@ When running locally in Development mode, open Scalar at:
 
 - `http://localhost:5265/scalar`
 
-## License
-
-No license is currently specified for this repository.
-All rights are reserved by default unless a license is added in the future.
