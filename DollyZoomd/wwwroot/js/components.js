@@ -127,6 +127,11 @@ export function createWatchlistEntry(entry, { onStatusChange, onRate, onRemove, 
     const heading = document.createElement("div");
     heading.className = "wl-heading";
 
+    const title = document.createElement("div");
+    title.className = "wl-title";
+    title.textContent = entry.showName || "Untitled show";
+    heading.appendChild(title);
+
     /* badges row */
     const badges = document.createElement("div");
     badges.className = "wl-badges";

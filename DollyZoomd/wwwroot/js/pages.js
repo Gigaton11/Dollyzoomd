@@ -1410,7 +1410,7 @@ function buildShowDetailsPage(details, latestComments) {
         main: createMainTabPanel(details, {
             onViewEpisodes: () => activateTab("episodes"),
             onViewCast: () => activateTab("cast"),
-            latestComment,
+            latestComments,
         }),
         episodes: createEpisodesTabPanel(details),
         cast: createCastTabPanel(details),
@@ -1457,7 +1457,7 @@ function buildShowDetailsPage(details, latestComments) {
     return page;
 }
 
-function createMainTabPanel(details, { onViewEpisodes, onViewCast, latestComment }) {
+function createMainTabPanel(details, { onViewEpisodes, onViewCast, latestComments }) {
     const panel = document.createElement("div");
     panel.className = "show-tab-panel";
 
