@@ -4,6 +4,7 @@ using DollyZoomd.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -15,27 +16,33 @@ namespace DollyZoomd.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.3");
+            modelBuilder
+                .HasAnnotation("ProductVersion", "9.0.3")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("ShowId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasMaxLength(240)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(240)");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -50,10 +57,10 @@ namespace DollyZoomd.Migrations
                 {
                     b.Property<string>("CategoryName")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<int>("RankPosition")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CachedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -62,10 +69,10 @@ namespace DollyZoomd.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Id")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<int>("ShowId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.HasKey("CategoryName", "RankPosition");
 
@@ -81,29 +88,29 @@ namespace DollyZoomd.Migrations
             modelBuilder.Entity("DollyZoomd.Models.Show", b =>
                 {
                     b.Property<int>("Id")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<double?>("AverageRating")
-                        .HasColumnType("REAL");
+                        .HasColumnType("double precision");
 
                     b.Property<DateTime>("CachedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GenresCsv")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("PosterUrl")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateOnly?>("PremieredOn")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.HasKey("Id");
 
@@ -114,11 +121,11 @@ namespace DollyZoomd.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AvatarFileName")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(255)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -126,17 +133,17 @@ namespace DollyZoomd.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(40)");
 
                     b.HasKey("Id");
 
@@ -153,16 +160,18 @@ namespace DollyZoomd.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int>("CommentId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsUpvote")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -177,16 +186,16 @@ namespace DollyZoomd.Migrations
             modelBuilder.Entity("DollyZoomd.Models.UserFavorite", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("ShowId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("DisplayOrder")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.HasKey("UserId", "ShowId");
 
@@ -201,18 +210,18 @@ namespace DollyZoomd.Migrations
             modelBuilder.Entity("DollyZoomd.Models.WatchlistEntry", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("ShowId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<int?>("Rating")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");

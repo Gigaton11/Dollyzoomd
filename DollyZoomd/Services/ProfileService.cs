@@ -3,6 +3,7 @@ using DollyZoomd.DTOs.Profile;
 using DollyZoomd.Options;
 using DollyZoomd.Repositories.Interfaces;
 using DollyZoomd.Services.Interfaces;
+using Google.Cloud.Storage.V1;
 using Microsoft.Extensions.Options;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -14,7 +15,8 @@ public class ProfileService(
     IProfileRepository profileRepository,
     IFavoritesRepository favoritesRepository,
     IWebHostEnvironment environment,
-    IOptions<AvatarOptions> avatarOptions) : IProfileService
+    IOptions<AvatarOptions> avatarOptions,
+    ILogger<ProfileService> logger) : IProfileService
 {
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -97,29 +99,9 @@ public class ProfileService(
         var user = await profileRepository.GetUserByIdAsync(userId, cancellationToken)
             ?? throw new KeyNotFoundException("User was not found.");
 
-        var webRootPath = environment.WebRootPath;
-        if (string.IsNullOrWhiteSpace(webRootPath))
-        {
-            throw new InvalidOperationException("Web root path is not configured.");
-        }
-
-        var normalizedStoragePath = NormalizeStoragePath(_avatarOptions.StoragePath);
-        var avatarDirectory = Path.Combine(webRootPath, normalizedStoragePath.Replace('/', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(avatarDirectory);
-
-        if (!string.IsNullOrWhiteSpace(user.AvatarFileName))
-        {
-            var existingFilePath = Path.Combine(avatarDirectory, user.AvatarFileName);
-            if (File.Exists(existingFilePath))
-            {
-                File.Delete(existingFilePath);
-            }
-        }
-
         // Always output as JPEG after processing.
         const string fileExtension = ".jpg";
         var avatarFileName = $"{userId:N}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{fileExtension}";
-        var avatarFilePath = Path.Combine(avatarDirectory, avatarFileName);
 
         byte[] processedBytes;
         try
@@ -137,7 +119,45 @@ public class ProfileService(
             throw new ArgumentException("The uploaded file is not a valid image.", nameof(file));
         }
 
-        await File.WriteAllBytesAsync(avatarFilePath, processedBytes, cancellationToken);
+        try
+        {
+            if (_avatarOptions.UseCloudStorage)
+            {
+                // Upload to Google Cloud Storage
+                await UploadToCloudStorageAsync(avatarFileName, processedBytes, cancellationToken);
+            }
+            else
+            {
+                // Save to local disk
+                SaveToLocalDisk(avatarFileName, processedBytes);
+            }
+
+            // Clean up old avatar if exists
+            if (!string.IsNullOrWhiteSpace(user.AvatarFileName))
+            {
+                try
+                {
+                    if (_avatarOptions.UseCloudStorage)
+                    {
+                        await DeleteFromCloudStorageAsync(user.AvatarFileName, cancellationToken);
+                    }
+                    else
+                    {
+                        DeleteFromLocalDisk(user.AvatarFileName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("Failed to delete old avatar {OldFileName}: {Exception}", user.AvatarFileName, ex);
+                    // Don't fail the upload if cleanup fails
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not ArgumentException)
+        {
+            logger.LogError("Error saving avatar {AvatarFileName}: {Exception}", avatarFileName, ex);
+            throw new InvalidOperationException("Failed to save avatar. Please try again.", ex);
+        }
 
         await profileRepository.UpdateAvatarFileNameAsync(userId, avatarFileName, cancellationToken);
         return BuildAvatarUrl(avatarFileName) ?? string.Empty;
@@ -150,13 +170,13 @@ public class ProfileService(
         if (image.Width < _avatarOptions.MinInputDimensionPixels || image.Height < _avatarOptions.MinInputDimensionPixels)
         {
             throw new ArgumentException(
-                $"Image is too small. Minimum size is {_avatarOptions.MinInputDimensionPixels}\u00d7{_avatarOptions.MinInputDimensionPixels} pixels.");
+                $"Image is too small. Minimum size is {_avatarOptions.MinInputDimensionPixels}×{_avatarOptions.MinInputDimensionPixels} pixels.");
         }
 
         if (image.Width > _avatarOptions.MaxInputDimensionPixels || image.Height > _avatarOptions.MaxInputDimensionPixels)
         {
             throw new ArgumentException(
-                $"Image dimensions are too large. Maximum allowed is {_avatarOptions.MaxInputDimensionPixels}\u00d7{_avatarOptions.MaxInputDimensionPixels} pixels.");
+                $"Image dimensions are too large. Maximum allowed is {_avatarOptions.MaxInputDimensionPixels}×{_avatarOptions.MaxInputDimensionPixels} pixels.");
         }
 
         var maxSide = _avatarOptions.ResizeMaxSidePixels;
@@ -178,6 +198,94 @@ public class ProfileService(
         return ms.ToArray();
     }
 
+    private void SaveToLocalDisk(string avatarFileName, byte[] fileBytes)
+    {
+        var webRootPath = environment.WebRootPath;
+        if (string.IsNullOrWhiteSpace(webRootPath))
+        {
+            throw new InvalidOperationException("Web root path is not configured.");
+        }
+
+        var normalizedStoragePath = NormalizeStoragePath(_avatarOptions.StoragePath);
+        var avatarDirectory = Path.Combine(webRootPath, normalizedStoragePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(avatarDirectory);
+
+        var avatarFilePath = Path.Combine(avatarDirectory, avatarFileName);
+        File.WriteAllBytes(avatarFilePath, fileBytes);
+    }
+
+    private async Task UploadToCloudStorageAsync(string objectName, byte[] fileBytes, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_avatarOptions.CloudStorageBucket))
+        {
+            throw new InvalidOperationException("Cloud Storage bucket is not configured.");
+        }
+
+        try
+        {
+            var storage = StorageClient.Create();
+            using var ms = new MemoryStream(fileBytes);
+            
+            await storage.UploadObjectAsync(
+                _avatarOptions.CloudStorageBucket,
+                objectName,
+                "image/jpeg",
+                ms,
+                cancellationToken: cancellationToken);
+
+            logger.LogInformation("Uploaded avatar to Cloud Storage: {BucketName}/{ObjectName}", 
+                _avatarOptions.CloudStorageBucket, objectName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Failed to upload avatar to Cloud Storage: {Exception}", ex);
+            throw new InvalidOperationException("Failed to upload avatar to cloud storage.", ex);
+        }
+    }
+
+    private void DeleteFromLocalDisk(string avatarFileName)
+    {
+        var webRootPath = environment.WebRootPath;
+        if (string.IsNullOrWhiteSpace(webRootPath))
+        {
+            return;
+        }
+
+        var normalizedStoragePath = NormalizeStoragePath(_avatarOptions.StoragePath);
+        var avatarDirectory = Path.Combine(webRootPath, normalizedStoragePath.Replace('/', Path.DirectorySeparatorChar));
+        var existingFilePath = Path.Combine(avatarDirectory, avatarFileName);
+        
+        if (File.Exists(existingFilePath))
+        {
+            File.Delete(existingFilePath);
+        }
+    }
+
+    private async Task DeleteFromCloudStorageAsync(string objectName, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_avatarOptions.CloudStorageBucket))
+        {
+            return;
+        }
+
+        try
+        {
+            var storage = StorageClient.Create();
+            await storage.DeleteObjectAsync(
+                _avatarOptions.CloudStorageBucket,
+                objectName,
+                cancellationToken: cancellationToken);
+
+            logger.LogInformation("Deleted old avatar from Cloud Storage: {BucketName}/{ObjectName}", 
+                _avatarOptions.CloudStorageBucket, objectName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning("Failed to delete avatar from Cloud Storage: {Exception}", ex);
+            // Don't throw - cleanup failure shouldn't break the operation
+        }
+    }
+
     private static IReadOnlyList<string> ParseGenres(string? csv)
     {
         if (string.IsNullOrWhiteSpace(csv)) return [];
@@ -191,8 +299,24 @@ public class ProfileService(
             return null;
         }
 
-        var normalizedStoragePath = NormalizeStoragePath(_avatarOptions.StoragePath);
-        return $"/{normalizedStoragePath}/{avatarFileName}";
+        if (_avatarOptions.UseCloudStorage)
+        {
+            // Return public Cloud Storage URL
+            // Format: https://storage.googleapis.com/bucket-name/object-name
+            if (string.IsNullOrWhiteSpace(_avatarOptions.CloudStorageBucket))
+            {
+                logger.LogWarning("Cloud Storage bucket not configured; cannot generate avatar URL");
+                return null;
+            }
+
+            return $"https://storage.googleapis.com/{_avatarOptions.CloudStorageBucket}/{avatarFileName}";
+        }
+        else
+        {
+            // Return local URL
+            var normalizedStoragePath = NormalizeStoragePath(_avatarOptions.StoragePath);
+            return $"/{normalizedStoragePath}/{avatarFileName}";
+        }
     }
 
     private static string NormalizeStoragePath(string? storagePath)

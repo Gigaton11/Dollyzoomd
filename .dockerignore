@@ -1,0 +1,60 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Project artifacts
+bin/
+obj/
+*.csproj.user
+
+# Build outputs
+*.log
+*.dll
+*.pdb
+*.exe
+
+# IDEs and editors
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+.idea/
+*.code-workspace
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+dollyzoomd.db
+
+# Temporary files
+.backups/
+*.tmp
+*.temp
+
+# Local environment
+.env
+.env.local
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# Node modules (if frontend is built separately)
+node_modules/
+dist/
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Test results
+TestResults/
+.coverage/
+
+# Documentation (optional, keep if needed for demo)
+# docs/
+
+# Excluded in production
+wwwroot/uploads/

@@ -18,16 +18,17 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (builder.Environment.IsDevelopment())
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    
+    if (string.IsNullOrWhiteSpace(connectionString))
     {
-        // Use SQLite for development
-        options.UseSqlite("Data Source=dollyzoomd.db");
+        throw new InvalidOperationException(
+            "Connection string 'DefaultConnection' is not configured. " +
+            "Ensure appsettings.json or environment variables provide a valid PostgreSQL connection string.");
     }
-    else
-    {
-        // Use PostgreSQL for production
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-    }
+
+    // Use PostgreSQL for both development and production
+    options.UseNpgsql(connectionString);
 });
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
@@ -143,5 +144,32 @@ else
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// ── Health Check Endpoint ─────────────────────────────────────────────────────
+app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
+    .WithName("Health")
+    .WithOpenApi()
+    .AllowAnonymous();
+
+// ── Database Migration Bootstrap ──────────────────────────────────────────────
+// In Cloud Run, this can be enabled via environment variable APPLY_MIGRATIONS_ON_STARTUP=true
+// to safely create/update schema on first deployment. Set to false after bootstrap for security.
+if (bool.TryParse(builder.Configuration["APPLY_MIGRATIONS_ON_STARTUP"], out var applyMigrations) && applyMigrations)
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Migrations");
+        try
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error applying database migrations at startup.");
+        }
+    }
+}
 
 app.Run();

@@ -35,6 +35,23 @@ appsettings.*.local.json
 # Logs
 *.log
 
+# Internal markdown docs (keep README public)
+*.md
+!README.md
+
+# Environment and deployment secrets
+*.env
+.env
+.env.*
+deployment-vars.sh
+cloud-credentials.json
+service-account-key.json
+
+# Backup and temp artifacts
+.backups/
+*.backup
+*.bak
+
 # OS files
 .DS_Store
 Thumbs.db

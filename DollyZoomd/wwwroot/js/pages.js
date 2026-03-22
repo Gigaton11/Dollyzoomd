@@ -1004,6 +1004,7 @@ export async function renderDiary() {
 
             items.forEach(entry => {
                 const el = createWatchlistEntry(entry, {
+                    onOpenShow: openShowDetails,
                     onStatusChange: async (showId, status) => {
                         try {
                             await Api.updateStatus(showId, { status });

@@ -8,11 +8,9 @@ namespace DollyZoomd.Repositories;
 
 public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
 {
-    private readonly AppDbContext _context = context;
-
     public async Task<IReadOnlyList<ShowSearchItemDto>> GetDiscoverShowsAsync(string categoryName, int take = 20, int skip = 0)
     {
-        var cached = await _context.DiscoverCaches
+        var cached = await context.DiscoverCaches
             .Where(dc => dc.CategoryName == categoryName)
             .OrderBy(dc => dc.RankPosition)
             .Skip(skip)
@@ -46,13 +44,13 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
         }
 
         // Delete old cache entries for this category
-        var oldEntries = await _context.DiscoverCaches
+        var oldEntries = await context.DiscoverCaches
             .Where(dc => dc.CategoryName == categoryName)
             .ToListAsync();
 
         if (oldEntries.Any())
         {
-            _context.DiscoverCaches.RemoveRange(oldEntries);
+            context.DiscoverCaches.RemoveRange(oldEntries);
         }
 
         // Insert new cache entries with calculated expiry
@@ -70,13 +68,13 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
             })
             .ToList();
 
-        await _context.DiscoverCaches.AddRangeAsync(newEntries);
-        await _context.SaveChangesAsync();
+        await context.DiscoverCaches.AddRangeAsync(newEntries);
+        await context.SaveChangesAsync();
     }
 
     public async Task<bool> IsCategoryExpiredAsync(string categoryName)
     {
-        var oldestEntry = await _context.DiscoverCaches
+        var oldestEntry = await context.DiscoverCaches
             .Where(dc => dc.CategoryName == categoryName)
             .OrderBy(dc => dc.ExpiryAtUtc)
             .FirstOrDefaultAsync();
@@ -92,7 +90,7 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
 
     public Task<int> GetCategoryCountAsync(string categoryName)
     {
-        return _context.DiscoverCaches
+        return context.DiscoverCaches
             .Where(dc => dc.CategoryName == categoryName)
             .CountAsync();
     }
@@ -103,7 +101,7 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
     /// </summary>
     private async Task UpsertShowCacheAsync(ShowSearchItemDto show)
     {
-        var existing = await _context.Shows.FindAsync(show.TvMazeId);
+        var existing = await context.Shows.FindAsync(show.TvMazeId);
 
         if (existing == null)
         {
@@ -118,7 +116,7 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
                 CachedAtUtc = DateTime.UtcNow
             };
 
-            await _context.Shows.AddAsync(newShow);
+            await context.Shows.AddAsync(newShow);
         }
         else
         {
@@ -128,9 +126,9 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
             existing.PremieredOn = show.PremieredOn;
             existing.AverageRating = show.AverageRating;
             existing.CachedAtUtc = DateTime.UtcNow;
-            _context.Shows.Update(existing);
+            context.Shows.Update(existing);
         }
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 }

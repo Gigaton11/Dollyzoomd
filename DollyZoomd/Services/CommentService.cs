@@ -224,6 +224,16 @@ public class CommentService(ICommentRepository commentRepository, IOptions<Avata
             return null;
         }
 
+        if (_avatarOptions.UseCloudStorage)
+        {
+            if (string.IsNullOrWhiteSpace(_avatarOptions.CloudStorageBucket))
+            {
+                return null;
+            }
+
+            return $"https://storage.googleapis.com/{_avatarOptions.CloudStorageBucket}/{avatarFileName}";
+        }
+
         var normalizedStoragePath = NormalizeStoragePath(_avatarOptions.StoragePath);
         return $"/{normalizedStoragePath}/{avatarFileName}";
     }

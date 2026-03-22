@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DollyZoomd.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260317130359_InitialCreate")]
+    [Migration("20260322111201_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -25,10 +25,76 @@ namespace DollyZoomd.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ShowId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ShowId", "CreatedAtUtc");
+
+                    b.ToTable("comments", (string)null);
+                });
+
+            modelBuilder.Entity("DollyZoomd.Models.DiscoverCache", b =>
+                {
+                    b.Property<string>("CategoryName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("RankPosition")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CachedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiryAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ShowId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("CategoryName", "RankPosition");
+
+                    b.HasIndex("ExpiryAtUtc");
+
+                    b.HasIndex("ShowId");
+
+                    b.HasIndex("CategoryName", "ExpiryAtUtc");
+
+                    b.ToTable("DiscoverCaches");
+                });
+
             modelBuilder.Entity("DollyZoomd.Models.Show", b =>
                 {
                     b.Property<int>("Id")
                         .HasColumnType("integer");
+
+                    b.Property<double?>("AverageRating")
+                        .HasColumnType("double precision");
 
                     b.Property<DateTime>("CachedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -46,6 +112,9 @@ namespace DollyZoomd.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateOnly?>("PremieredOn")
+                        .HasColumnType("date");
+
                     b.HasKey("Id");
 
                     b.ToTable("shows", (string)null);
@@ -56,6 +125,10 @@ namespace DollyZoomd.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("AvatarFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -84,6 +157,33 @@ namespace DollyZoomd.Migrations
                         .IsUnique();
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("DollyZoomd.Models.UserCommentVote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CommentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsUpvote")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("CommentId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("user_comment_votes", (string)null);
                 });
 
             modelBuilder.Entity("DollyZoomd.Models.UserFavorite", b =>
@@ -136,6 +236,55 @@ namespace DollyZoomd.Migrations
                     b.ToTable("watchlist_entries", (string)null);
                 });
 
+            modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
+                {
+                    b.HasOne("DollyZoomd.Models.Show", "Show")
+                        .WithMany("Comments")
+                        .HasForeignKey("ShowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DollyZoomd.Models.User", "User")
+                        .WithMany("Comments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Show");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DollyZoomd.Models.DiscoverCache", b =>
+                {
+                    b.HasOne("DollyZoomd.Models.Show", "Show")
+                        .WithMany()
+                        .HasForeignKey("ShowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Show");
+                });
+
+            modelBuilder.Entity("DollyZoomd.Models.UserCommentVote", b =>
+                {
+                    b.HasOne("DollyZoomd.Models.Comment", "Comment")
+                        .WithMany("Votes")
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DollyZoomd.Models.User", "User")
+                        .WithMany("CommentVotes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Comment");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("DollyZoomd.Models.UserFavorite", b =>
                 {
                     b.HasOne("DollyZoomd.Models.Show", "Show")
@@ -174,8 +323,15 @@ namespace DollyZoomd.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("DollyZoomd.Models.Comment", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
             modelBuilder.Entity("DollyZoomd.Models.Show", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("FavoritedBy");
 
                     b.Navigation("WatchlistEntries");
@@ -183,6 +339,10 @@ namespace DollyZoomd.Migrations
 
             modelBuilder.Entity("DollyZoomd.Models.User", b =>
                 {
+                    b.Navigation("CommentVotes");
+
+                    b.Navigation("Comments");
+
                     b.Navigation("Favorites");
 
                     b.Navigation("WatchlistEntries");

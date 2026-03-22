@@ -1,0 +1,60 @@
+# Cloud Build configuration for DollyZoomd
+# Builds Docker image and deploys to Cloud Run
+
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:$SHORT_SHA'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:latest'
+      - '.'
+
+  # Step 2: Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:$SHORT_SHA'
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    args:
+      - 'run'
+      - '--filename=k8s/'
+      - '--image=europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:$SHORT_SHA'
+      - '--location=europe-west1'
+      - '--namespace=production'
+    # Alternative: Use gcloud run deploy (simpler for first deployment)
+    # - name: 'gcr.io/cloud-builders/gcloud'
+    #   args:
+    #     - 'run'
+    #     - 'deploy'
+    #     - 'dollyzoomd'
+    #     - '--image=europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:$SHORT_SHA'
+    #     - '--region=europe-west1'
+    #     - '--platform=managed'
+    #     - '--allow-unauthenticated'
+    #     - '--set-env-vars='^:^ASPNETCORE_ENVIRONMENT=Production:APPLY_MIGRATIONS_ON_STARTUP=true'
+    #     - '--set-cloudsql-instances=PROJECT:REGION:INSTANCE'
+    #     - '--service-account=dollyzoomd-cloud-run@PROJECT.iam.gserviceaccount.com'
+
+# Images pushed to Artifact Registry
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:$SHORT_SHA'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/dollyzoomd:latest'
+
+# Build options
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+# Timeout for build (15 minutes)
+timeout: '900s'
+
+# Substitutions for Cloud Build
+substitutions:
+  _REGION: 'europe-west1'
+  _SERVICE_NAME: 'dollyzoomd'
+  _REGISTRY: 'europe-west1-docker.pkg.dev'
