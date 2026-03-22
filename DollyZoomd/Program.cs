@@ -104,7 +104,11 @@ builder.Services.AddHttpClient("RottenTomatoes", client =>
 });
 
 // ── Controllers + OpenAPI (Scalar UI) ────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
 // JWT Bearer security scheme will be wired here in Phase 3 (Auth).
 builder.Services.AddOpenApi();

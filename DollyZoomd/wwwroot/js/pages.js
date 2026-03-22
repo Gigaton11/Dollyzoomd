@@ -1133,12 +1133,14 @@ export async function renderShowDetails(params = {}) {
     setLoadingState(root, "Loading show details…");
 
     try {
-        const [details, latestComment] = await Promise.all([
+        const [details, commentsPayload] = await Promise.all([
             Api.getShowDetails(showId),
-            Api.getLatestComment(showId).catch(() => null),
+            Api.getShowComments(showId).catch(() => ({ comments: [] })),
         ]);
         root.innerHTML = "";
-        root.appendChild(buildShowDetailsPage(details, latestComment));
+        // Get the last 3 comments
+        const latestComments = (commentsPayload?.comments ?? []).slice(-3);
+        root.appendChild(buildShowDetailsPage(details, latestComments));
     } catch (err) {
         root.innerHTML = "";
         if (err.status === 404) {
@@ -1150,7 +1152,7 @@ export async function renderShowDetails(params = {}) {
     }
 }
 
-function buildShowDetailsPage(details, latestComment) {
+function buildShowDetailsPage(details, latestComments) {
     const page = document.createElement("div");
     page.className = "show-detail-page fade-in";
 
@@ -1486,7 +1488,7 @@ function createMainTabPanel(details, { onViewEpisodes, onViewCast, latestComment
     infoSection.appendChild(infoLayout);
 
     panel.appendChild(infoSection);
-    panel.appendChild(createCommentsSection(details, latestComment));
+    panel.appendChild(createCommentsSection(details, latestComments));
 
     const previousSection = document.createElement("section");
     previousSection.className = "show-section";
@@ -1542,7 +1544,7 @@ function createMainTabPanel(details, { onViewEpisodes, onViewCast, latestComment
     return panel;
 }
 
-function createCommentsSection(details, initialLatestComment) {
+function createCommentsSection(details, initialLatestComments) {
     const section = document.createElement("section");
     section.className = "show-section comments-section";
 
@@ -1561,18 +1563,21 @@ function createCommentsSection(details, initialLatestComment) {
     latestWrap.className = "comments-latest-wrap";
     section.appendChild(latestWrap);
 
-    let latestComment = initialLatestComment && typeof initialLatestComment === "object"
-        ? initialLatestComment
-        : null;
+    let latestComments = Array.isArray(initialLatestComments) ? initialLatestComments : [];
 
     const refreshLatestFromApi = async () => {
-        latestComment = await Api.getLatestComment(details.tvMazeId).catch(() => null);
+        try {
+            const payload = await Api.getShowComments(details.tvMazeId);
+            latestComments = (payload?.comments ?? []).slice(-3);
+        } catch (err) {
+            latestComments = [];
+        }
         renderLatest();
     };
 
     const renderLatest = () => {
         latestWrap.innerHTML = "";
-        if (!latestComment) {
+        if (!latestComments || latestComments.length === 0) {
             const empty = document.createElement("p");
             empty.className = "comments-empty-copy";
             empty.textContent = "Add the first comment";
@@ -1580,16 +1585,21 @@ function createCommentsSection(details, initialLatestComment) {
             return;
         }
 
-        latestWrap.appendChild(createCommentListItem(details.tvMazeId, latestComment, {
-            onVoteUpdated: (updatedComment) => {
-                latestComment = updatedComment;
-                renderLatest();
-            },
-            onDeleted: async () => {
-                await refreshLatestFromApi();
-                showToast("Comment deleted.", "success");
-            },
-        }));
+        latestComments.forEach((comment) => {
+            latestWrap.appendChild(createCommentListItem(details.tvMazeId, comment, {
+                onVoteUpdated: (updatedComment) => {
+                    const idx = latestComments.findIndex(c => Number(c.id) === Number(updatedComment.id));
+                    if (idx !== -1) {
+                        latestComments[idx] = updatedComment;
+                        renderLatest();
+                    }
+                },
+                onDeleted: async () => {
+                    await refreshLatestFromApi();
+                    showToast("Comment deleted.", "success");
+                },
+            }));
+        });
     };
 
     if (Auth.isAuthenticated()) {
@@ -1646,12 +1656,16 @@ function createCommentsSection(details, initialLatestComment) {
             submitBtn.textContent = "Posting…";
 
             try {
-                latestComment = await Api.addComment(details.tvMazeId, {
+                const newComment = await Api.addComment(details.tvMazeId, {
                     text,
                     showName: details.name,
                     posterUrl: details.posterUrl || null,
                     genresCsv: Array.isArray(details.genres) ? details.genres.join(", ") : null,
                 });
+
+                // Add new comment and keep only last 3
+                latestComments.push(newComment);
+                latestComments = latestComments.slice(-3);
 
                 form.reset();
                 counter.textContent = "0/240";
@@ -1676,8 +1690,9 @@ function createCommentsSection(details, initialLatestComment) {
             const payload = await Api.getShowComments(details.tvMazeId);
             openCommentsDialog(details.tvMazeId, payload?.comments ?? [], {
                 onVoteUpdated: (updatedComment) => {
-                    if (latestComment && Number(updatedComment.id) === Number(latestComment.id)) {
-                        latestComment = updatedComment;
+                    const idx = latestComments.findIndex(c => Number(c.id) === Number(updatedComment.id));
+                    if (idx !== -1) {
+                        latestComments[idx] = updatedComment;
                         renderLatest();
                     }
                 },
