@@ -7,6 +7,11 @@ It powers a web experience for discovering popular shows, tracking watch status,
 
 Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 
+| Field    | Value           |
+|----------|-----------------|
+| Username | `demo`          |
+| Password | `demo123!`       |
+
 ## Tech Stack
 
 - ASP.NET Core (.NET 10)
