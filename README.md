@@ -1,6 +1,6 @@
 # Dollyzoomd 🎥
 
-Dollyzoomd is a cloud-ready TV discovery and tracking backend built with ASP.NET Core and PostgreSQL.
+Dollyzoomd is a TV discovery and tracking backend built with ASP.NET Core and PostgreSQL.
 It powers a web experience using TVmaze's Api for discovering popular shows, tracking watch status, managing favorites, and sharing comments.
 
 ## Live Demo
