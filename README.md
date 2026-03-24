@@ -10,7 +10,7 @@ Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 | Field    | Value           |
 |----------|-----------------|
 | Username | `demo`          |
-| Password | `demo123!`       |
+| Password | `demo123!`      |
 
 ## Tech Stack
 
