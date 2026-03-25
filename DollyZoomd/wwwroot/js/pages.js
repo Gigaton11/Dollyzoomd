@@ -465,10 +465,20 @@ export function renderHome() {
         isAuthenticated,
         username: Auth.getUsername(),
     });
-    page.appendChild(hero);
 
-    if (!isAuthenticated) {
-        page.appendChild(buildHomeAuthCard());
+    if (isAuthenticated) {
+        page.appendChild(hero);
+    } else {
+        const heroRow = document.createElement("div");
+        heroRow.className = "home-hero-row";
+        heroRow.appendChild(hero);
+
+        const demoHint = buildDemoHint("home-demo-hint");
+        if (demoHint) {
+            heroRow.appendChild(demoHint);
+        }
+
+        page.appendChild(heroRow);
     }
 
     const popularMount = document.createElement("section");
@@ -554,6 +564,36 @@ function buildAuthHero({ isAuthenticated = false, username = "" } = {}) {
     return hero;
 }
 
+function buildDemoHint(extraClassName = "") {
+    if (!shouldShowDemoHint()) {
+        return null;
+    }
+
+    const demoHint = document.createElement("div");
+    demoHint.className = ["auth-demo-hint", extraClassName].filter(Boolean).join(" ");
+    demoHint.setAttribute("role", "note");
+
+    const message = document.createElement("p");
+    message.className = "auth-demo-hint-text";
+    message.textContent = "Demo Account: demo/demo123!";
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "auth-demo-hint-close";
+    closeButton.setAttribute("aria-label", "Dismiss demo account hint");
+    closeButton.textContent = "x";
+
+    closeButton.onclick = () => {
+        dismissDemoHint();
+        demoHint.classList.add("is-hidden");
+        setTimeout(() => demoHint.remove(), 180);
+    };
+
+    demoHint.appendChild(message);
+    demoHint.appendChild(closeButton);
+    return demoHint;
+}
+
 function buildHomeAuthCard() {
     const card = document.createElement("div");
     card.className = "auth-card";
@@ -616,29 +656,8 @@ function buildHomeAuthCard() {
 
         formWrap.appendChild(form);
 
-        if (shouldShowDemoHint()) {
-            const demoHint = document.createElement("div");
-            demoHint.className = "auth-demo-hint";
-            demoHint.setAttribute("role", "note");
-
-            const message = document.createElement("p");
-            message.className = "auth-demo-hint-text";
-            message.textContent = "Demo Account: demo/demo123!";
-
-            const closeButton = document.createElement("button");
-            closeButton.type = "button";
-            closeButton.className = "auth-demo-hint-close";
-            closeButton.setAttribute("aria-label", "Dismiss demo account hint");
-            closeButton.textContent = "x";
-
-            closeButton.onclick = () => {
-                dismissDemoHint();
-                demoHint.classList.add("is-hidden");
-                setTimeout(() => demoHint.remove(), 180);
-            };
-
-            demoHint.appendChild(message);
-            demoHint.appendChild(closeButton);
+        const demoHint = buildDemoHint();
+        if (demoHint) {
             formWrap.appendChild(demoHint);
         }
     }

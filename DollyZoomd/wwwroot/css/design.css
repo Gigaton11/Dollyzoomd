@@ -1062,12 +1062,26 @@ select.input-field {
     gap: 2rem;
 }
 
+.home-hero-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 1.5rem;
+}
+
 .home-page > * {
     min-width: 0;
 }
 
 .home-page .auth-card {
     max-width: 440px;
+}
+
+.home-demo-hint {
+    width: min(320px, 100%);
+    margin-top: 0.25rem;
+    justify-self: end;
+    align-self: start;
 }
 
 /* ── Carousel ── */
@@ -1799,6 +1813,14 @@ select.input-field {
     .auth-page { grid-template-columns: 1fr; }
     .auth-hero { display: none; }
     .home-page .auth-hero { display: block; }
+    .home-hero-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    .home-demo-hint {
+        justify-self: stretch;
+        width: min(100%, 420px);
+    }
     .auth-hero-returning { width: 100%; }
     .favorites-grid > .card,
     .profile-watchlist-grid > .wl-entry,
