@@ -743,6 +743,58 @@ select.input-field {
 
 .auth-form { display: grid; gap: 1.1rem; }
 
+.auth-demo-hint {
+    margin-top: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.52rem 0.65rem 0.52rem 0.75rem;
+    border: 1px solid rgba(123, 141, 154, 0.3);
+    border-radius: var(--radius-xs);
+    background: rgba(123, 141, 154, 0.08);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.auth-demo-hint.is-hidden {
+    opacity: 0;
+    transform: translateY(-2px);
+}
+
+.auth-demo-hint-text {
+    margin: 0;
+}
+
+.auth-demo-hint-close {
+    border: none;
+    background: transparent;
+    color: var(--text-faint);
+    width: 1.2rem;
+    height: 1.2rem;
+    line-height: 1;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.auth-demo-hint-close:hover {
+    color: var(--text);
+    background: rgba(123, 141, 154, 0.12);
+}
+
+.auth-demo-hint-close:focus-visible {
+    outline: none;
+    color: var(--text);
+    box-shadow: 0 0 0 2px rgba(123, 141, 154, 0.22);
+}
+
 /* ── Search Page ── */
 .search-form {
     display: flex;

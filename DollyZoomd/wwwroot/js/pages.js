@@ -9,6 +9,7 @@ const app = () => document.getElementById("app");
 const MAX_AVATAR_SIZE_BYTES = 8 * 1024 * 1024;
 const AVATAR_ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const AVATAR_ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const DEMO_HINT_DISMISSED_KEY = "dollyzoomd.demoHintDismissed";
 const IMAGE_PLACEHOLDER_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'><rect width='400' height='225' fill='#2c3440'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#7b8d9a' font-family='Inter,Segoe UI,sans-serif' font-size='22'>No Image</text></svg>"
 )}`;
@@ -221,6 +222,26 @@ function goBackToPreviousRoute() {
     }
 
     navigate("home", { force: true });
+}
+
+function shouldShowDemoHint() {
+    if (Auth.isAuthenticated()) {
+        return false;
+    }
+
+    try {
+        return localStorage.getItem(DEMO_HINT_DISMISSED_KEY) !== "1";
+    } catch {
+        return true;
+    }
+}
+
+function dismissDemoHint() {
+    try {
+        localStorage.setItem(DEMO_HINT_DISMISSED_KEY, "1");
+    } catch {
+        // Ignore storage failures and only dismiss in the current view.
+    }
 }
 
 function wirePasswordPeekButtons(form) {
@@ -589,6 +610,32 @@ function buildHomeAuthCard() {
         };
 
         formWrap.appendChild(form);
+
+        if (shouldShowDemoHint()) {
+            const demoHint = document.createElement("div");
+            demoHint.className = "auth-demo-hint";
+            demoHint.setAttribute("role", "note");
+
+            const message = document.createElement("p");
+            message.className = "auth-demo-hint-text";
+            message.textContent = "Demo Account: demo/demo123!";
+
+            const closeButton = document.createElement("button");
+            closeButton.type = "button";
+            closeButton.className = "auth-demo-hint-close";
+            closeButton.setAttribute("aria-label", "Dismiss demo account hint");
+            closeButton.textContent = "x";
+
+            closeButton.onclick = () => {
+                dismissDemoHint();
+                demoHint.classList.add("is-hidden");
+                setTimeout(() => demoHint.remove(), 180);
+            };
+
+            demoHint.appendChild(message);
+            demoHint.appendChild(closeButton);
+            formWrap.appendChild(demoHint);
+        }
     }
 
     function buildRegisterForm() {
