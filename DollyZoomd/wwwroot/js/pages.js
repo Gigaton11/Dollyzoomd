@@ -459,12 +459,17 @@ export function renderHome() {
     const root = clear();
     const page = document.createElement("div");
     page.className = "home-page fade-in";
+    const isAuthenticated = Auth.isAuthenticated();
 
     const hero = buildAuthHero({
-        isAuthenticated: Auth.isAuthenticated(),
+        isAuthenticated,
         username: Auth.getUsername(),
     });
     page.appendChild(hero);
+
+    if (!isAuthenticated) {
+        page.appendChild(buildHomeAuthCard());
+    }
 
     const popularMount = document.createElement("section");
     popularMount.className = "carousel-section";
@@ -478,7 +483,7 @@ export function renderHome() {
 
     root.appendChild(page);
 
-    const cardActions = Auth.isAuthenticated()
+    const cardActions = isAuthenticated
         ? { onAddWatchlist: handleHomeAddWatchlist, onAddFavorite: handleHomeAddFavorite, onOpenShow: openShowDetails }
         : { onOpenShow: openShowDetails };
 
