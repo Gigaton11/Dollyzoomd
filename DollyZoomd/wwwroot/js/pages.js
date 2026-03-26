@@ -553,7 +553,7 @@ function buildAuthHero({ isAuthenticated = false, username = "" } = {}) {
 
     hero.innerHTML = `
         <p class="section-eyebrow">TV Tracker</p>
-        <h1>Your shows<br><em>Your story</em></h1>
+        <h1>So give me<br><em>Coffee and TV</em></h1>
         <p>Track every series you've watched. Rate them and share your taste with the world</p>
         <div class="auth-features">
             <p>Login with your account to</p>
