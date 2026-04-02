@@ -10,7 +10,7 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
 {
     public async Task<IReadOnlyList<ShowSearchItemDto>> GetDiscoverShowsAsync(string categoryName, int take = 20, int skip = 0)
     {
-        var cached = await context.DiscoverCaches
+        var cachedEntries = await context.DiscoverCaches
             .Where(dc => dc.CategoryName == categoryName)
             .OrderBy(dc => dc.RankPosition)
             .Skip(skip)
@@ -18,19 +18,9 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
             .Include(dc => dc.Show)
             .ToListAsync();
 
-        return cached
-            .Select(dc => new ShowSearchItemDto
-            {
-                TvMazeId = dc.Show!.Id,
-                Name = dc.Show.Name,
-                PosterUrl = dc.Show.PosterUrl,
-                Genres = dc.Show.GenresCsv?.Split(',')
-                    .Select(g => g.Trim())
-                    .Where(g => !string.IsNullOrWhiteSpace(g))
-                    .ToList() ?? [],
-                PremieredOn = dc.Show.PremieredOn,
-                AverageRating = dc.Show.AverageRating
-            })
+        return cachedEntries
+            .Where(dc => dc.Show is not null)
+            .Select(MapToShowSearchItem)
             .ToList()
             .AsReadOnly();
     }
@@ -130,5 +120,33 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
         }
 
         await context.SaveChangesAsync();
+    }
+
+    private static ShowSearchItemDto MapToShowSearchItem(DiscoverCache cacheEntry)
+    {
+        var show = cacheEntry.Show!;
+        return new ShowSearchItemDto
+        {
+            TvMazeId = show.Id,
+            Name = show.Name,
+            PosterUrl = show.PosterUrl,
+            Genres = ParseGenres(show.GenresCsv),
+            PremieredOn = show.PremieredOn,
+            AverageRating = show.AverageRating
+        };
+    }
+
+    private static List<string> ParseGenres(string? genresCsv)
+    {
+        if (string.IsNullOrWhiteSpace(genresCsv))
+        {
+            return [];
+        }
+
+        return genresCsv
+            .Split(',')
+            .Select(genre => genre.Trim())
+            .Where(genre => !string.IsNullOrWhiteSpace(genre))
+            .ToList();
     }
 }

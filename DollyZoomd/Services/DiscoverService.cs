@@ -318,13 +318,16 @@ public class DiscoverService(
 
         var normalizedTitle = NormalizeTitle(title);
 
+        // Selection strategy prioritizes precision before recall:
+        // 1) exact normalized title + exact year
+        // 2) exact normalized title
+        // 3) year-only match
+        // 4) starts-with title match
+        // 5) highest rated fallback
         if (yearHint is not null)
         {
-            var exactYearMatch = candidates
-                .Where(show => string.Equals(NormalizeTitle(show.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase))
-                .Where(show => GetPremieredYear(show) == yearHint)
-                .OrderByDescending(show => show.Rating?.Average ?? 0)
-                .FirstOrDefault();
+            var exactYearMatch = FindHighestRated(candidates,
+                show => IsNormalizedTitleMatch(show, normalizedTitle) && GetPremieredYear(show) == yearHint);
 
             if (exactYearMatch is not null)
             {
@@ -332,10 +335,7 @@ public class DiscoverService(
             }
         }
 
-        var exact = candidates
-            .Where(show => string.Equals(NormalizeTitle(show.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(show => show.Rating?.Average ?? 0)
-            .FirstOrDefault();
+        var exact = FindHighestRated(candidates, show => IsNormalizedTitleMatch(show, normalizedTitle));
         if (exact is not null)
         {
             return exact;
@@ -343,10 +343,7 @@ public class DiscoverService(
 
         if (yearHint is not null)
         {
-            var yearMatch = candidates
-                .Where(show => GetPremieredYear(show) == yearHint)
-                .OrderByDescending(show => show.Rating?.Average ?? 0)
-                .FirstOrDefault();
+            var yearMatch = FindHighestRated(candidates, show => GetPremieredYear(show) == yearHint);
 
             if (yearMatch is not null)
             {
@@ -354,18 +351,27 @@ public class DiscoverService(
             }
         }
 
-        var startsWith = candidates
-            .Where(show => NormalizeTitle(show.Name).StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(show => show.Rating?.Average ?? 0)
-            .FirstOrDefault();
+        var startsWith = FindHighestRated(candidates,
+            show => NormalizeTitle(show.Name).StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase));
         if (startsWith is not null)
         {
             return startsWith;
         }
 
+        return FindHighestRated(candidates, _ => true);
+    }
+
+    private static TvMazeShow? FindHighestRated(IEnumerable<TvMazeShow> candidates, Func<TvMazeShow, bool> predicate)
+    {
         return candidates
+            .Where(predicate)
             .OrderByDescending(show => show.Rating?.Average ?? 0)
             .FirstOrDefault();
+    }
+
+    private static bool IsNormalizedTitleMatch(TvMazeShow show, string normalizedTitle)
+    {
+        return string.Equals(NormalizeTitle(show.Name), normalizedTitle, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int? GetPremieredYear(TvMazeShow show)

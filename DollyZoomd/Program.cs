@@ -158,22 +158,29 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime
 // ── Database Migration Bootstrap ──────────────────────────────────────────────
 // In Cloud Run, this can be enabled via environment variable APPLY_MIGRATIONS_ON_STARTUP=true
 // to safely create/update schema on first deployment. Set to false after bootstrap for security.
-if (bool.TryParse(builder.Configuration["APPLY_MIGRATIONS_ON_STARTUP"], out var applyMigrations) && applyMigrations)
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Migrations");
-        try
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Database.Migrate();
-            logger.LogInformation("Database migrations applied successfully.");
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error applying database migrations at startup.");
-        }
-    }
-}
+ApplyStartupMigrationsIfEnabled(app, builder.Configuration);
 
 app.Run();
+
+static void ApplyStartupMigrationsIfEnabled(WebApplication app, IConfiguration configuration)
+{
+    if (!bool.TryParse(configuration["APPLY_MIGRATIONS_ON_STARTUP"], out var applyMigrations) || !applyMigrations)
+    {
+        return;
+    }
+
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Migrations");
+
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+        logger.LogInformation("Database migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        // Startup should continue even if migration fails; health checks and logs expose the issue.
+        logger.LogError(ex, "Error applying database migrations at startup.");
+    }
+}

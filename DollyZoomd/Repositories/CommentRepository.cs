@@ -82,12 +82,17 @@ public class CommentRepository(AppDbContext dbContext) : ICommentRepository
         }
         else
         {
-            existing.Name = show.Name;
-            existing.PosterUrl = show.PosterUrl;
-            existing.GenresCsv = show.GenresCsv;
-            existing.CachedAtUtc = DateTime.UtcNow;
+            CopyShowCacheFields(show, existing);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void CopyShowCacheFields(Show source, Show target)
+    {
+        target.Name = source.Name;
+        target.PosterUrl = source.PosterUrl;
+        target.GenresCsv = source.GenresCsv;
+        target.CachedAtUtc = DateTime.UtcNow;
     }
 }

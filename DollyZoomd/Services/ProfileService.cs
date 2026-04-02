@@ -88,13 +88,7 @@ public class ProfileService(
         }
 
         var extension = Path.GetExtension(file.FileName);
-        var hasAllowedExtension = !string.IsNullOrWhiteSpace(extension) && AllowedExtensions.Contains(extension);
-        var hasAllowedContentType = AllowedContentTypes.Contains(file.ContentType ?? string.Empty);
-
-        if (!hasAllowedExtension && !hasAllowedContentType)
-        {
-            throw new ArgumentException("Avatar must be JPEG/JPG, PNG, WebP, or GIF.", nameof(file));
-        }
+        ValidateAvatarFileType(file, extension);
 
         var user = await profileRepository.GetUserByIdAsync(userId, cancellationToken)
             ?? throw new KeyNotFoundException("User was not found.");
@@ -121,37 +115,10 @@ public class ProfileService(
 
         try
         {
-            if (_avatarOptions.UseCloudStorage)
-            {
-                // Upload to Google Cloud Storage
-                await UploadToCloudStorageAsync(avatarFileName, processedBytes, cancellationToken);
-            }
-            else
-            {
-                // Save to local disk
-                SaveToLocalDisk(avatarFileName, processedBytes);
-            }
-
-            // Clean up old avatar if exists
-            if (!string.IsNullOrWhiteSpace(user.AvatarFileName))
-            {
-                try
-                {
-                    if (_avatarOptions.UseCloudStorage)
-                    {
-                        await DeleteFromCloudStorageAsync(user.AvatarFileName, cancellationToken);
-                    }
-                    else
-                    {
-                        DeleteFromLocalDisk(user.AvatarFileName);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning("Failed to delete old avatar {OldFileName}: {Exception}", user.AvatarFileName, ex);
-                    // Don't fail the upload if cleanup fails
-                }
-            }
+            // Storage strategy is selected at runtime from configuration so
+            // local development and cloud deployment share the same code path.
+            await SaveAvatarAsync(avatarFileName, processedBytes, cancellationToken);
+            await TryCleanupPreviousAvatarAsync(user.AvatarFileName, cancellationToken);
         }
         catch (Exception ex) when (ex is not ArgumentException)
         {
@@ -161,6 +128,52 @@ public class ProfileService(
 
         await profileRepository.UpdateAvatarFileNameAsync(userId, avatarFileName, cancellationToken);
         return BuildAvatarUrl(avatarFileName) ?? string.Empty;
+    }
+
+    private void ValidateAvatarFileType(IFormFile file, string? extension)
+    {
+        var hasAllowedExtension = !string.IsNullOrWhiteSpace(extension) && AllowedExtensions.Contains(extension);
+        var hasAllowedContentType = AllowedContentTypes.Contains(file.ContentType ?? string.Empty);
+
+        if (!hasAllowedExtension && !hasAllowedContentType)
+        {
+            throw new ArgumentException("Avatar must be JPEG/JPG, PNG, WebP, or GIF.", nameof(file));
+        }
+    }
+
+    private async Task SaveAvatarAsync(string avatarFileName, byte[] processedBytes, CancellationToken cancellationToken)
+    {
+        if (_avatarOptions.UseCloudStorage)
+        {
+            await UploadToCloudStorageAsync(avatarFileName, processedBytes, cancellationToken);
+            return;
+        }
+
+        SaveToLocalDisk(avatarFileName, processedBytes);
+    }
+
+    private async Task TryCleanupPreviousAvatarAsync(string? previousAvatarFileName, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(previousAvatarFileName))
+        {
+            return;
+        }
+
+        try
+        {
+            if (_avatarOptions.UseCloudStorage)
+            {
+                await DeleteFromCloudStorageAsync(previousAvatarFileName, cancellationToken);
+                return;
+            }
+
+            DeleteFromLocalDisk(previousAvatarFileName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning("Failed to delete old avatar {OldFileName}: {Exception}", previousAvatarFileName, ex);
+            // Best-effort cleanup: do not fail the request after the new avatar is stored.
+        }
     }
 
     private async Task<byte[]> ProcessAvatarImageAsync(Stream inputStream, CancellationToken cancellationToken)

@@ -9,14 +9,12 @@ namespace DollyZoomd.Services;
 
 public class CommentService(ICommentRepository commentRepository, IOptions<AvatarOptions> avatarOptions) : ICommentService
 {
+    private const int MaxCommentLength = 240;
     private readonly AvatarOptions _avatarOptions = avatarOptions.Value;
 
     public async Task<CommentDto?> GetLatestCommentAsync(int showId, Guid? currentUserId, CancellationToken cancellationToken = default)
     {
-        if (showId <= 0)
-        {
-            throw new ArgumentException("Show ID must be a positive integer.");
-        }
+        EnsurePositiveId(showId, "Show ID must be a positive integer.");
 
         var comment = await commentRepository.GetLatestCommentByShowAsync(showId, cancellationToken);
         if (comment is null)
@@ -29,10 +27,7 @@ public class CommentService(ICommentRepository commentRepository, IOptions<Avata
 
     public async Task<CommentListDto> GetCommentsAsync(int showId, Guid? currentUserId, CancellationToken cancellationToken = default)
     {
-        if (showId <= 0)
-        {
-            throw new ArgumentException("Show ID must be a positive integer.");
-        }
+        EnsurePositiveId(showId, "Show ID must be a positive integer.");
 
         var comments = await commentRepository.GetCommentsByShowAsync(showId, cancellationToken);
 
@@ -45,27 +40,9 @@ public class CommentService(ICommentRepository commentRepository, IOptions<Avata
 
     public async Task<CommentDto> AddCommentAsync(Guid userId, int showId, AddCommentRequest request, CancellationToken cancellationToken = default)
     {
-        if (showId <= 0)
-        {
-            throw new ArgumentException("Show ID must be a positive integer.");
-        }
-
-        var text = (request.Text ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            throw new ArgumentException("Comment text is required.");
-        }
-
-        if (text.Length > 240)
-        {
-            throw new ArgumentException("Comments can be up to 240 characters.");
-        }
-
-        var showName = (request.ShowName ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(showName))
-        {
-            throw new ArgumentException("Show name is required.");
-        }
+        EnsurePositiveId(showId, "Show ID must be a positive integer.");
+        var text = ValidateAndNormalizeCommentText(request.Text);
+        var showName = ValidateAndNormalizeShowName(request.ShowName);
 
         await commentRepository.UpsertShowCacheAsync(new Show
         {
@@ -105,26 +82,11 @@ public class CommentService(ICommentRepository commentRepository, IOptions<Avata
 
         var vote = await commentRepository.GetVoteAsync(commentId, userId, cancellationToken);
 
-        if (vote is null)
-        {
-            vote = new UserCommentVote
-            {
-                CommentId = commentId,
-                UserId = userId,
-                IsUpvote = isUpvote
-            };
-
-            await commentRepository.AddVoteAsync(vote, cancellationToken);
-        }
-        else if (vote.IsUpvote == isUpvote)
-        {
-            await commentRepository.DeleteVoteAsync(vote, cancellationToken);
-        }
-        else
-        {
-            vote.IsUpvote = isUpvote;
-            await commentRepository.UpdateVoteAsync(vote, cancellationToken);
-        }
+        // Vote transition rules:
+        // - no vote -> create requested vote
+        // - same vote again -> remove vote (toggle off)
+        // - opposite vote -> switch direction
+        await ApplyVoteTransitionAsync(vote, commentId, userId, isUpvote, cancellationToken);
 
         var refreshed = await commentRepository.GetCommentByIdAsync(commentId, cancellationToken)
             ?? throw new KeyNotFoundException("Comment not found.");
@@ -163,15 +125,8 @@ public class CommentService(ICommentRepository commentRepository, IOptions<Avata
 
     private async Task<Comment> GetCommentForShowOrThrowAsync(int showId, int commentId, CancellationToken cancellationToken)
     {
-        if (showId <= 0)
-        {
-            throw new ArgumentException("Show ID must be a positive integer.");
-        }
-
-        if (commentId <= 0)
-        {
-            throw new ArgumentException("Comment ID must be a positive integer.");
-        }
+        EnsurePositiveId(showId, "Show ID must be a positive integer.");
+        EnsurePositiveId(commentId, "Comment ID must be a positive integer.");
 
         var comment = await commentRepository.GetCommentByIdAsync(commentId, cancellationToken);
         if (comment is null || comment.ShowId != showId)
@@ -187,6 +142,71 @@ public class CommentService(ICommentRepository commentRepository, IOptions<Avata
         if (comment.UserId == userId)
         {
             throw new InvalidOperationException("You cannot vote on your own comment.");
+        }
+    }
+
+    private async Task ApplyVoteTransitionAsync(
+        UserCommentVote? existingVote,
+        int commentId,
+        Guid userId,
+        bool requestedUpvote,
+        CancellationToken cancellationToken)
+    {
+        if (existingVote is null)
+        {
+            var newVote = new UserCommentVote
+            {
+                CommentId = commentId,
+                UserId = userId,
+                IsUpvote = requestedUpvote
+            };
+
+            await commentRepository.AddVoteAsync(newVote, cancellationToken);
+            return;
+        }
+
+        if (existingVote.IsUpvote == requestedUpvote)
+        {
+            await commentRepository.DeleteVoteAsync(existingVote, cancellationToken);
+            return;
+        }
+
+        existingVote.IsUpvote = requestedUpvote;
+        await commentRepository.UpdateVoteAsync(existingVote, cancellationToken);
+    }
+
+    private static string ValidateAndNormalizeCommentText(string? text)
+    {
+        var normalizedText = (text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalizedText))
+        {
+            throw new ArgumentException("Comment text is required.");
+        }
+
+        if (normalizedText.Length > MaxCommentLength)
+        {
+            throw new ArgumentException("Comments can be up to 240 characters.");
+        }
+
+        return normalizedText;
+    }
+
+    private static string ValidateAndNormalizeShowName(string? showName)
+    {
+        var normalizedShowName = (showName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalizedShowName))
+        {
+            throw new ArgumentException("Show name is required.");
+        }
+
+        return normalizedShowName;
+    }
+
+    private static void EnsurePositiveId(int value, string errorMessage)
+    {
+        if (value <= 0)
+        {
+            throw new ArgumentException(errorMessage);
         }
     }
 

@@ -10,6 +10,8 @@ namespace DollyZoomd.Controllers;
 [AllowAnonymous]
 public class DiscoverController(IDiscoverService discoverService) : ControllerBase
 {
+    private const int DefaultTake = 20;
+    private const int MaxTake = 100;
     private readonly IDiscoverService _discoverService = discoverService;
 
     /// <summary>
@@ -22,12 +24,9 @@ public class DiscoverController(IDiscoverService discoverService) : ControllerBa
     [HttpGet("popular")]
     public async Task<ActionResult<IReadOnlyList<ShowSearchItemDto>>> GetPopular([FromQuery] int take = 20, [FromQuery] int skip = 0)
     {
-        if (take < 1 || take > 100)
-            take = 20;
-        if (skip < 0)
-            skip = 0;
+        var (normalizedTake, normalizedSkip) = NormalizePaging(take, skip);
 
-        var shows = await _discoverService.GetPopularShowsAsync(take, skip);
+        var shows = await _discoverService.GetPopularShowsAsync(normalizedTake, normalizedSkip);
         return Ok(shows);
     }
 
@@ -41,12 +40,17 @@ public class DiscoverController(IDiscoverService discoverService) : ControllerBa
     [HttpGet("all-time-greats")]
     public async Task<ActionResult<IReadOnlyList<ShowSearchItemDto>>> GetAllTimeGreats([FromQuery] int take = 20, [FromQuery] int skip = 0)
     {
-        if (take < 1 || take > 100)
-            take = 20;
-        if (skip < 0)
-            skip = 0;
+        var (normalizedTake, normalizedSkip) = NormalizePaging(take, skip);
 
-        var shows = await _discoverService.GetAllTimeGreatsAsync(take, skip);
+        var shows = await _discoverService.GetAllTimeGreatsAsync(normalizedTake, normalizedSkip);
         return Ok(shows);
+    }
+
+    private static (int Take, int Skip) NormalizePaging(int take, int skip)
+    {
+        // Keep API forgiving for clients: out-of-range values are clamped/fallbacked.
+        var normalizedTake = take is >= 1 and <= MaxTake ? take : DefaultTake;
+        var normalizedSkip = Math.Max(0, skip);
+        return (normalizedTake, normalizedSkip);
     }
 }

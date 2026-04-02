@@ -30,6 +30,12 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? throw new UnauthorizedAccessException("User identity not found in token.");
-        return Guid.Parse(claim);
+
+        if (!Guid.TryParse(claim, out var userId))
+        {
+            throw new UnauthorizedAccessException("User identity in token is invalid.");
+        }
+
+        return userId;
     }
 }

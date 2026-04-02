@@ -79,12 +79,17 @@ public class CommentsController(ICommentService commentService) : ControllerBase
 
     private Guid GetUserId()
     {
-        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+        return GetUserIdCore(requireValidGuid: true)
             ?? throw new UnauthorizedAccessException("User identity not found in token.");
-        return Guid.Parse(claim);
     }
 
     private Guid? TryGetUserId()
+    {
+        // Anonymous endpoints allow missing identity; malformed IDs are treated as absent.
+        return GetUserIdCore(requireValidGuid: false);
+    }
+
+    private Guid? GetUserIdCore(bool requireValidGuid)
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(claim))
@@ -92,6 +97,16 @@ public class CommentsController(ICommentService commentService) : ControllerBase
             return null;
         }
 
-        return Guid.TryParse(claim, out var userId) ? userId : null;
+        if (Guid.TryParse(claim, out var userId))
+        {
+            return userId;
+        }
+
+        if (requireValidGuid)
+        {
+            throw new UnauthorizedAccessException("User identity in token is invalid.");
+        }
+
+        return null;
     }
 }
