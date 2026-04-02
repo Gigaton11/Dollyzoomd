@@ -13,6 +13,7 @@ public class FavoritesService(IFavoritesRepository favoritesRepository) : IFavor
     {
         var favorites = await favoritesRepository.GetFavoritesAsync(userId, cancellationToken);
 
+        // Convert persistence model into API DTOs with parsed genre lists.
         return favorites.Select(f => new FavoriteDto
         {
             ShowId       = f.ShowId,
@@ -25,12 +26,14 @@ public class FavoritesService(IFavoritesRepository favoritesRepository) : IFavor
 
     public async Task AddFavoriteAsync(Guid userId, AddFavoriteRequest request, CancellationToken cancellationToken = default)
     {
+        // Enforce idempotency: a show can appear at most once in favorites.
         var existing = await favoritesRepository.GetFavoriteAsync(userId, request.TvMazeShowId, cancellationToken);
         if (existing is not null)
         {
             throw new InvalidOperationException("This show is already in your favorites.");
         }
 
+        // Keep UI constraints and server invariants aligned with a hard max.
         var existingFavorites = await favoritesRepository.GetFavoritesAsync(userId, cancellationToken);
         var count = existingFavorites.Count;
         if (count >= MaxFavorites)
@@ -38,6 +41,7 @@ public class FavoritesService(IFavoritesRepository favoritesRepository) : IFavor
             throw new InvalidOperationException($"You can only have up to {MaxFavorites} favorites. Remove one to add another.");
         }
 
+        // New entries are appended to the end of the explicit display order.
         var nextDisplayOrder = existingFavorites
             .Select(f => f.DisplayOrder)
             .DefaultIfEmpty(0)
@@ -50,6 +54,8 @@ public class FavoritesService(IFavoritesRepository favoritesRepository) : IFavor
             PosterUrl = request.PosterUrl,
             GenresCsv = request.GenresCsv
         };
+
+        // Ensure FK target exists before creating the favorite row.
         await favoritesRepository.UpsertShowCacheAsync(show, cancellationToken);
 
         var favorite = new UserFavorite

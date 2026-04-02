@@ -124,6 +124,7 @@ public class DiscoverRepository(AppDbContext context) : IDiscoverRepository
 
     private static ShowSearchItemDto MapToShowSearchItem(DiscoverCache cacheEntry)
     {
+        // Cache rows are denormalized into API DTOs for list endpoints.
         var show = cacheEntry.Show!;
         return new ShowSearchItemDto
         {

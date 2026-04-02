@@ -15,6 +15,7 @@ public class WatchlistController(IWatchlistService watchlistService) : Controlle
     [ProducesResponseType(typeof(IReadOnlyList<WatchlistEntryDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<WatchlistEntryDto>>> GetMyWatchlist(CancellationToken cancellationToken)
     {
+        // Every operation is executed against the caller's own watchlist.
         var userId = GetUserId();
         var entries = await watchlistService.GetWatchlistAsync(userId, cancellationToken);
         return Ok(entries);
@@ -62,6 +63,7 @@ public class WatchlistController(IWatchlistService watchlistService) : Controlle
 
     private Guid GetUserId()
     {
+        // Identity claim is validated defensively to avoid runtime Guid parsing failures.
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? throw new UnauthorizedAccessException("User identity not found in token.");
 

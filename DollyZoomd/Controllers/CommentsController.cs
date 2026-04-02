@@ -16,6 +16,7 @@ public class CommentsController(ICommentService commentService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CommentDto?>> GetLatest(int showId, CancellationToken cancellationToken)
     {
+        // Anonymous users are allowed; user context is optional for vote ownership flags.
         var currentUserId = TryGetUserId();
         var latestComment = await commentService.GetLatestCommentAsync(showId, currentUserId, cancellationToken);
         return Ok(latestComment);
@@ -26,6 +27,7 @@ public class CommentsController(ICommentService commentService) : ControllerBase
     [ProducesResponseType(typeof(CommentListDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CommentListDto>> GetAll(int showId, CancellationToken cancellationToken)
     {
+        // Include optional user context so each row can indicate current user's vote/ownership.
         var currentUserId = TryGetUserId();
         var comments = await commentService.GetCommentsAsync(showId, currentUserId, cancellationToken);
         return Ok(comments);

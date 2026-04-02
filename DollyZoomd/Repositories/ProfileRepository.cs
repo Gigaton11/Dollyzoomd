@@ -11,6 +11,7 @@ public class ProfileRepository(AppDbContext dbContext) : IProfileRepository
 {
     public Task<User?> GetUserByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
+        // Profile URLs are case-insensitive; compare using normalized uppercase form.
         var normalizedUsername = (username ?? string.Empty).Trim();
         var normalizedUsernameUpper = normalizedUsername.ToUpperInvariant();
 
@@ -37,6 +38,7 @@ public class ProfileRepository(AppDbContext dbContext) : IProfileRepository
 
     public async Task<WatchlistSummaryDto> GetWatchlistSummaryAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        // Materialize statuses once, then compute summary counts in-memory.
         var statuses = await dbContext.WatchlistEntries
             .Where(e => e.UserId == userId)
             .Select(e => e.Status)

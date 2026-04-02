@@ -9,6 +9,7 @@ public class CommentRepository(AppDbContext dbContext) : ICommentRepository
 {
     public Task<Comment?> GetLatestCommentByShowAsync(int showId, CancellationToken cancellationToken = default)
     {
+        // Include author and votes so the service can compute view-model fields in one roundtrip.
         return dbContext.Comments
             .Where(x => x.ShowId == showId)
             .Include(x => x.User)
@@ -75,6 +76,7 @@ public class CommentRepository(AppDbContext dbContext) : ICommentRepository
 
     public async Task UpsertShowCacheAsync(Show show, CancellationToken cancellationToken = default)
     {
+        // Keep referenced show metadata synchronized with latest client payload.
         var existing = await dbContext.Shows.FindAsync([show.Id], cancellationToken);
         if (existing is null)
         {

@@ -15,6 +15,7 @@ public class FavoritesController(IFavoritesService favoritesService) : Controlle
     [ProducesResponseType(typeof(IReadOnlyList<FavoriteDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<FavoriteDto>>> GetFavorites(CancellationToken cancellationToken)
     {
+        // All favorites endpoints are user-scoped via JWT identity.
         var userId = GetUserId();
         var favorites = await favoritesService.GetFavoritesAsync(userId, cancellationToken);
         return Ok(favorites);
@@ -42,6 +43,7 @@ public class FavoritesController(IFavoritesService favoritesService) : Controlle
 
     private Guid GetUserId()
     {
+        // NameIdentifier is generated in JWT creation and treated as the canonical user key.
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? throw new UnauthorizedAccessException("User identity not found in token.");
 

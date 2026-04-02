@@ -9,12 +9,14 @@ public class AuthRepository(AppDbContext dbContext) : IAuthRepository
 {
     public Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default)
     {
+        // Case-insensitive username check (stored value casing is preserved separately).
         var normalizedUsername = (username ?? string.Empty).Trim().ToUpperInvariant();
         return dbContext.Users.AnyAsync(x => x.Username.ToUpper() == normalizedUsername, cancellationToken);
     }
 
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
     {
+        // Email checks use canonical lowercase form.
         var normalizedEmail = (email ?? string.Empty).Trim().ToLowerInvariant();
         return dbContext.Users.AnyAsync(x => x.Email.ToLower() == normalizedEmail, cancellationToken);
     }

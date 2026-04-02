@@ -15,6 +15,7 @@ public class ShowsController(IShowService showService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<ShowSearchItemDto>>> Search([FromQuery] string q, CancellationToken cancellationToken)
     {
+        // Thin controller: query parsing is minimal, filtering/validation is in service layer.
         var results = await showService.SearchShowsAsync(q, cancellationToken);
         return Ok(results);
     }
@@ -25,6 +26,7 @@ public class ShowsController(IShowService showService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ShowDetailsDto>> GetDetails([FromRoute] int id, CancellationToken cancellationToken)
     {
+        // Details endpoint aggregates show, cast, and episodes into one payload.
         var details = await showService.GetShowDetailsAsync(id, cancellationToken);
         return Ok(details);
     }

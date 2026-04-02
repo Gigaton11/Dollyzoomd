@@ -9,6 +9,7 @@ public class FavoritesRepository(AppDbContext dbContext) : IFavoritesRepository
 {
     public async Task<IReadOnlyList<UserFavorite>> GetFavoritesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        // Return favorites in explicit UI display order.
         return await dbContext.UserFavorites
             .Where(x => x.UserId == userId)
             .Include(x => x.Show)
@@ -41,6 +42,7 @@ public class FavoritesRepository(AppDbContext dbContext) : IFavoritesRepository
 
     public async Task UpsertShowCacheAsync(Show show, CancellationToken cancellationToken = default)
     {
+        // Keep show metadata fresh before creating/using FK references.
         var existing = await dbContext.Shows.FindAsync([show.Id], cancellationToken);
         if (existing is null)
         {

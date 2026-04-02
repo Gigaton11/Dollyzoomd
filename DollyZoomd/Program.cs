@@ -131,6 +131,7 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 if (app.Environment.IsDevelopment())
 {
+    // Disable browser caching in dev so frontend changes appear immediately.
     app.UseStaticFiles(new StaticFileOptions
     {
         OnPrepareResponse = context =>
@@ -143,6 +144,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
+    // Use default static-file behavior in production for better cache efficiency.
     app.UseStaticFiles();
 }
 app.UseAuthentication();

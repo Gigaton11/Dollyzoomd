@@ -37,6 +37,7 @@ public class DiscoverService(
 
     public async Task EnsurePopularShowsFreshAsync(CancellationToken cancellationToken = default)
     {
+        // Fast path: if cache is valid and sufficiently populated, serve immediately.
         var isExpired = await _discoverRepository.IsCategoryExpiredAsync(PopularCategory);
         var cachedCount = await _discoverRepository.GetCategoryCountAsync(PopularCategory);
         if (!isExpired && cachedCount >= PopularTopCount)
@@ -44,6 +45,7 @@ public class DiscoverService(
             return;
         }
 
+        // Single-flight lock prevents multiple concurrent refreshes under load.
         await PopularRefreshLock.WaitAsync(cancellationToken);
 
         try
@@ -61,6 +63,7 @@ public class DiscoverService(
             }
             catch (Exception ex) when (cachedCount > 0)
             {
+                // Degrade gracefully: stale cache is preferable to hard failure for browse pages.
                 _logger.LogWarning(ex, "Popular refresh failed. Serving stale cache with {Count} rows.", cachedCount);
             }
         }
@@ -124,6 +127,7 @@ public class DiscoverService(
 
             if (dtos.Count < PopularTopCount)
             {
+                // Backfill keeps carousel size stable when source matching is incomplete.
                 var fallbackShows = await ResolveShowsByIdsAsync(DefaultPopularFallbackTvMazeIds, cancellationToken);
                 AppendMissingShows(dtos, fallbackShows, PopularTopCount);
             }

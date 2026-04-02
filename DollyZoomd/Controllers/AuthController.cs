@@ -15,6 +15,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
+        // Service enforces uniqueness and password rules; controller maps request/response only.
         var response = await authService.RegisterAsync(request, cancellationToken);
         return Ok(response);
     }
@@ -24,6 +25,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
+        // Supports username or email login, handled in service layer.
         var response = await authService.LoginAsync(request, cancellationToken);
         return Ok(response);
     }

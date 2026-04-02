@@ -9,6 +9,7 @@ public class WatchlistService(IWatchlistRepository watchlistRepository) : IWatch
 {
     public async Task AddToWatchlistAsync(Guid userId, AddToWatchlistRequest request, CancellationToken cancellationToken = default)
     {
+        // Guard against duplicate rows so each user/show pair stays unique.
         var existing = await watchlistRepository.GetEntryAsync(userId, request.TvMazeShowId, cancellationToken);
         if (existing is not null)
         {
@@ -37,6 +38,7 @@ public class WatchlistService(IWatchlistRepository watchlistRepository) : IWatch
 
     public async Task UpdateStatusAsync(Guid userId, int showId, UpdateWatchStatusRequest request, CancellationToken cancellationToken = default)
     {
+        // Status updates keep existing row metadata while changing only user intent.
         var entry = await GetEntryOrThrowAsync(userId, showId, cancellationToken);
         entry.Status = request.Status;
         await watchlistRepository.UpdateAsync(entry, cancellationToken);
@@ -44,6 +46,7 @@ public class WatchlistService(IWatchlistRepository watchlistRepository) : IWatch
 
     public async Task RateShowAsync(Guid userId, int showId, RateShowRequest request, CancellationToken cancellationToken = default)
     {
+        // Ratings are attached only to shows already in the watchlist.
         var entry = await GetEntryOrThrowAsync(userId, showId, cancellationToken);
         entry.Rating = request.Rating;
         await watchlistRepository.UpdateAsync(entry, cancellationToken);
@@ -59,6 +62,7 @@ public class WatchlistService(IWatchlistRepository watchlistRepository) : IWatch
     {
         var entries = await watchlistRepository.GetUserWatchlistAsync(userId, cancellationToken);
 
+        // API surface returns parsed genres rather than raw CSV storage format.
         return entries.Select(e => new WatchlistEntryDto
         {
             ShowId       = e.ShowId,

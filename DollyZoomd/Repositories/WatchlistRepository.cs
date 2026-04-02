@@ -9,6 +9,7 @@ public class WatchlistRepository(AppDbContext dbContext) : IWatchlistRepository
 {
     public Task<WatchlistEntry?> GetEntryAsync(Guid userId, int showId, CancellationToken cancellationToken = default)
     {
+        // Includes show details so service-to-DTO mapping does not trigger extra queries.
         return dbContext.WatchlistEntries
             .Include(x => x.Show)
             .SingleOrDefaultAsync(x => x.UserId == userId && x.ShowId == showId, cancellationToken);
@@ -43,6 +44,7 @@ public class WatchlistRepository(AppDbContext dbContext) : IWatchlistRepository
 
     public async Task UpsertShowCacheAsync(Show show, CancellationToken cancellationToken = default)
     {
+        // Upsert avoids FK failures when adding watchlist rows for unseen shows.
         var existing = await dbContext.Shows.FindAsync([show.Id], cancellationToken);
         if (existing is null)
         {

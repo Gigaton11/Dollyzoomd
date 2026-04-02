@@ -8,6 +8,7 @@ public class ShowService(ITvMazeClient tvMazeClient) : IShowService
 {
     public async Task<IReadOnlyList<ShowSearchItemDto>> SearchShowsAsync(string query, CancellationToken cancellationToken = default)
     {
+        // Normalize and validate early so downstream queries are predictable.
         if (string.IsNullOrWhiteSpace(query))
         {
             throw new ArgumentException("Search query must be at least 2 characters.");
@@ -21,6 +22,8 @@ public class ShowService(ITvMazeClient tvMazeClient) : IShowService
 
         var results = await tvMazeClient.SearchShowsAsync(normalizedQuery, cancellationToken);
 
+        // The search pipeline keeps only valid rows, maps external models to API DTOs,
+        // removes duplicates, and caps result size for responsive UI consumption.
         var mappedResults = results
             .Where(x => x.Show is not null)
             .Select(x => x.Show!)
@@ -48,6 +51,7 @@ public class ShowService(ITvMazeClient tvMazeClient) : IShowService
             throw new ArgumentException("Show ID must be a positive integer.");
         }
 
+        // Fetch independent resources in parallel to reduce total latency.
         var showTask = tvMazeClient.GetShowByIdAsync(showId, cancellationToken);
         var episodesTask = tvMazeClient.GetShowEpisodesAsync(showId, cancellationToken);
         var castTask = tvMazeClient.GetShowCastAsync(showId, cancellationToken);
@@ -60,6 +64,7 @@ public class ShowService(ITvMazeClient tvMazeClient) : IShowService
             throw new KeyNotFoundException("Show not found.");
         }
 
+        // Keep episode ordering deterministic for clients by season, then number.
         var episodes = episodesTask.Result
             .Where(episode => episode.Id > 0 && !string.IsNullOrWhiteSpace(episode.Name))
             .Select(episode => new ShowDetailsEpisodeDto
@@ -76,6 +81,7 @@ public class ShowService(ITvMazeClient tvMazeClient) : IShowService
             .ThenBy(episode => episode.Number)
             .ToList();
 
+        // Deduplicate cast by stable person key (ID when available, otherwise normalized name).
         var cast = castTask.Result
             .Where(member => member.Person is not null && !string.IsNullOrWhiteSpace(member.Person.Name))
             .Select(member => new ShowDetailsCastMemberDto

@@ -13,6 +13,7 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetProfile(string username, CancellationToken cancellationToken)
     {
+        // Public profile view does not require authentication.
         var profile = await profileService.GetProfileAsync(username, cancellationToken);
         return Ok(profile);
     }
@@ -21,6 +22,7 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateAvatar([FromForm] IFormFile file, CancellationToken cancellationToken)
     {
+        // Avatar updates are tied to the authenticated user only.
         var userId = GetUserId();
         var avatarUrl = await profileService.UpdateAvatarAsync(userId, file, cancellationToken);
         return Ok(new { avatarUrl });

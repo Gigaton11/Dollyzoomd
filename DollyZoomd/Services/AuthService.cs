@@ -18,6 +18,7 @@ public class AuthService(IAuthRepository authRepository, IOptions<JwtOptions> jw
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
+        // Store canonical forms so uniqueness checks behave consistently.
         var username = request.Username.Trim();
         var email = request.Email.Trim().ToLowerInvariant();
 
@@ -40,6 +41,7 @@ public class AuthService(IAuthRepository authRepository, IOptions<JwtOptions> jw
         {
             Username = username,
             Email = email,
+            // Passwords are never stored in plain text.
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
         };
 
@@ -53,7 +55,7 @@ public class AuthService(IAuthRepository authRepository, IOptions<JwtOptions> jw
         var identifier = request.Identifier.Trim();
         var normalizedEmail = identifier.ToLowerInvariant();
 
-        // Check email first, then username; allows either login style.
+        // Check email first, then username; this supports both login styles.
         var user = await authRepository.GetByEmailAsync(normalizedEmail, cancellationToken)
             ?? await authRepository.GetByUsernameAsync(identifier, cancellationToken);
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
@@ -82,6 +84,7 @@ public class AuthService(IAuthRepository authRepository, IOptions<JwtOptions> jw
 
     private string GenerateJwt(User user, DateTime expiresAtUtc)
     {
+        // Include both standard JWT claims and framework-friendly identity claims.
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
