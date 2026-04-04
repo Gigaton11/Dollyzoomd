@@ -13,6 +13,12 @@ Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 | Username | `demo`          |
 | Password | `demo123!`      |
 
+## Screenshots
+<summary>Home Page</summary> <details><img width="1381" height="1235" alt="image" src="https://github.com/user-attachments/assets/0ada43be-a944-4795-8ec6-1e2a9170abb6" /></details>
+<summary>Profile Page</summary> <details><img width="1542" height="1123" alt="image" src="https://github.com/user-attachments/assets/ddb57688-4fc9-4d47-9166-2c58baed7d7e" /></details>
+<summary>TV Show Page</summary> <details><img width="1282" height="1173" alt="image" src="https://github.com/user-attachments/assets/2936cf4c-2e81-42c2-b7da-aae0bc032250" /></details>
+<summary>Watchlist Page</summary> <details><img width="1167" height="1210" alt="image" src="https://github.com/user-attachments/assets/168b7172-aede-445c-9ade-7c4bdcb607fd" /></details>
+
 ## Tech Stack
 
 - ASP.NET Core (.NET 10)
