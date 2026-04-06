@@ -4,7 +4,7 @@ Dollyzoomd is a TV discovery and tracking backend built with ASP.NET Core and Po
 It powers a web experience using TVmaze's Api for discovering tv shows.
 Register with your email to track shows, update watch status, manage favorites comment.
 
-## Live Demo
+## 🟢 Live Demo
 
 Visit [Dollyzoomd](https://dollyzoomd-847147860815.europe-west1.run.app/#home).
 
